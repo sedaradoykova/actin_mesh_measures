@@ -11,7 +11,7 @@ from scipy import io
 
 @pytest.fixture 
 def test_im():
-    impath = 'tests/test_files/testUTR_3miFRIifov1_01.tif'
+    impath = 'actin_meshwork_analysis/tests/test_files/testUTR_3miFRIifov1_01.tif'
     print('returning image')
     return imread(impath)
 
@@ -21,19 +21,23 @@ def test_im_norm(test_im):
 
 @pytest.fixture
 def raw_matlab_res():
-    return io.loadmat('tests/test_files/s2_th90_raw.mat')
+    """ Output of running matlab code on (raw) test_im for sigma=2 and theta=90. """
+    return io.loadmat('actin_meshwork_analysis/tests/test_files/s2_th90_raw.mat')
 
 
 @pytest.fixture
 def norm_matlab_res():
-    return io.loadmat('tests/test_files/s2_th90_normalised.mat')
+    """ Output of running matlab code on (normalised) test_im_norm for sigma=2 and theta=90. """
+    return io.loadmat('actin_meshwork_analysis/tests/test_files/s2_th90_normalised.mat')
 
 @pytest.fixture
 def raw_python_res(test_im):
+    """ Output of running python code on (raw) test_im for sigma=2 and theta=90. """
     return steerable_gauss_2order(test_im, sigma=2, theta=90, visualise=False, return_dict=True)
 
 @pytest.fixture
 def norm_python_res(test_im_norm):
+    """ Output of running python code on (normalised) test_im_norm for sigma=2 and theta=90. """
     return steerable_gauss_2order(test_im_norm, sigma=2, theta=90, visualise=False, return_dict=True)
 
 
@@ -56,8 +60,8 @@ def norm_python_res(test_im_norm):
 
 
 @pytest.mark.parametrize("keys,expect",[
-    (['G2a', 'G2b', 'G2c', 'g0', 'oriented_filter'], True), 
-    (['I', 'I2a', 'I2b', 'I2c', 'J'], False)],
+    (['G2a', 'G2b', 'G2c', 'g0', 'oriented_filter'], True), # steerable filter should match 
+    (['I', 'I2a', 'I2b', 'I2c', 'J'], False)], # input and output shouldn't match
 )
 def test_compare_mats_matlab(norm_matlab_res, raw_matlab_res, keys, expect):
     raw = [raw_matlab_res.get(key) for key in keys]
@@ -68,8 +72,8 @@ def test_compare_mats_matlab(norm_matlab_res, raw_matlab_res, keys, expect):
 
 @pytest.mark.parametrize(
     "key",['G2a', 'G2b', 'G2c', 'g0', 'oriented_filter', 'I', 'I2a', 'I2b', 'I2c', 'J']
-)
-def test_compare_raw_matpy(raw_matlab_res, raw_python_res, key):
+)                  # should match                       # should not deviate significantly     
+def test_compare_matpy_raw(raw_matlab_res, raw_python_res, key):
     mat, pyth = raw_matlab_res.get(key), raw_python_res.get(key)
     assert np.allclose(mat, pyth, atol=1e-5)
     assert mat.dtype == pyth.dtype
@@ -77,8 +81,8 @@ def test_compare_raw_matpy(raw_matlab_res, raw_python_res, key):
 
 @pytest.mark.parametrize(
     "key",['G2a', 'G2b', 'G2c', 'g0', 'oriented_filter', 'I', 'I2a', 'I2b', 'I2c', 'J']
-)
-def test_compare_norm_matpy(norm_matlab_res, norm_python_res, key):
+)                 # should match                       # should not deviate significantly   
+def test_compare_matpy_norm(norm_matlab_res, norm_python_res, key):
     mat, pyth = norm_matlab_res.get(key), norm_python_res.get(key)
     assert np.allclose(mat, pyth, atol=1e-5)
     assert mat.dtype == pyth.dtype
@@ -91,7 +95,9 @@ def test_compare_norm_matpy(norm_matlab_res, norm_python_res, key):
 
 @pytest.fixture
 def raw_matlab_res_x6():
-    return io.loadmat('tests/test_files/s2_th0_300_6_raw.mat')['J2']
+    """ Output of running matlab code on (raw) test_im
+    for sigma=2 and theta=[0,60,120,180,240,300]. """
+    return io.loadmat('actin_meshwork_analysis/tests/test_files/s2_th0_300_6_raw.mat')['J2']
 
 @pytest.fixture
 def raw_matlab_res_x6_mean(raw_matlab_res_x6):
@@ -99,7 +105,9 @@ def raw_matlab_res_x6_mean(raw_matlab_res_x6):
 
 @pytest.fixture
 def norm_matlab_res_x6():
-    return io.loadmat('tests/test_files/s2_th0_300_6_normalised.mat')['J2']
+    """ Output of running matlab code on (normalised) test_im_norm 
+        for sigma=2 and theta=[0,60,120,180,240,300]. """
+    return io.loadmat('actin_meshwork_analysis/tests/test_files/s2_th0_300_6_normalised.mat')['J2']
 
 @pytest.fixture
 def norm_matlab_res_x6_mean(norm_matlab_res_x6):
@@ -109,6 +117,8 @@ def norm_matlab_res_x6_mean(norm_matlab_res_x6):
 
 @pytest.fixture
 def raw_python_res_x6(test_im):
+    """ Output of running python code on (raw) test_im
+    for sigma=2 and theta=[0,60,120,180,240,300]. """
     res = [0]*6
     for n, angle in enumerate(np.arange(0,360,60)):
         res[n] = steerable_gauss_2order(test_im, sigma=2, theta=angle, visualise=False, return_stack=True)
@@ -121,6 +131,8 @@ def raw_python_res_x6_mean(raw_python_res_x6):
 
 @pytest.fixture
 def norm_python_res_x6(test_im_norm):
+    """ Output of running python code on (normalised) test_im_norm 
+        for sigma=2 and theta=[0,60,120,180,240,300]. """
     res = [0]*6
     for n, angle in enumerate(np.arange(0,360,60)):
         res[n] = steerable_gauss_2order(test_im_norm, sigma=2, theta=angle, visualise=False, return_stack=True)
