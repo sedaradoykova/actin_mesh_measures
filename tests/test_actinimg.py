@@ -1,7 +1,7 @@
 import pytest, os
 from pytest import raises
 import numpy as np
-from meshwork.meshwork import ActinImg
+from meshwork.actinimg import ActinImg
 
 """ TODO
     - No negative tests!!
@@ -59,12 +59,12 @@ def test_data_copies_at_threshold(z_proj_im, threshold_max_proj_res):
 def test_min_proj_substacks(z_proj_substacks, min_proj_res, min_grad_res):
     actimg = ActinImg(z_proj_substacks, 'test.tiff', (10,10), 3, False, 20) 
     actimg.normalise()
-    actimg.z_project_min([0,1])
+    actimg.z_project_min([1,2])
     # should match test_data_copies_at_z_proj_min
     assert (actimg.manipulated_stack==min_proj_res).all()
     actimg2 = ActinImg(z_proj_substacks, 'test.tiff', (10,10), 3, False, 20) 
     actimg2.normalise()
-    actimg2.z_project_min([1,2])
+    actimg2.z_project_min([2,3])
     # should match gradient fixture
     assert np.allclose(actimg2.manipulated_stack, min_grad_res, rtol=1e-4)
 
@@ -72,12 +72,12 @@ def test_min_proj_substacks(z_proj_substacks, min_proj_res, min_grad_res):
 def test_max_proj_substacks(z_proj_substacks, max_proj_res, max_grad_res):
     actimg = ActinImg(z_proj_substacks, 'test.tiff', (10,10), 3, False, 20) 
     actimg.normalise()
-    actimg.z_project_max([0,1])
+    actimg.z_project_max([1,2])
     # should match test_data_copies_at_z_proj_min
     assert (actimg.manipulated_stack==max_proj_res).all()
     actimg2 = ActinImg(z_proj_substacks, 'test.tiff', (10,10), 3, False, 20) 
     actimg2.normalise()
-    actimg2.z_project_max([1,2])
+    actimg2.z_project_max([2,3])
     # should match gradient fixture
     assert np.allclose(actimg2.manipulated_stack, max_grad_res, rtol=1e-4)
 

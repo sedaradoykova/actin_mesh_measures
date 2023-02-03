@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from meshwork.meshwork import ActinImg, get_ActinImg
+from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
 """ visualise = think about scales for frames -- use the same scale for all subplots 
@@ -235,7 +235,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from meshwork.meshwork import ActinImg, get_ActinImg
+from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
 

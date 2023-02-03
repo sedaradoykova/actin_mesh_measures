@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from tifffile import imsave
-from meshwork.meshwork import ActinImg
+from meshwork.actinimg import ActinImg
 
 """ Instance creation fixtures. """
 
