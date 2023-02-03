@@ -5,7 +5,7 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from scipy.ndimage import correlate, morphology
 from skimage import measure
 from dataclasses import dataclass
-from actin_meshwork_analysis.meshwork.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
+from meshwork.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
  
 """ Design considerations: 
     Currently, the original data is kept and modifications happen on a copy which is internally updated 
