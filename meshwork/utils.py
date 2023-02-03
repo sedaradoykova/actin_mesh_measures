@@ -90,29 +90,21 @@ def get_resolution(meta: dict, nm: bool=False):
         raise ValueError('Resolution is different in x and y.')
     return res_out
 
-def get_axes_to_del(rows, cols, n):
-    leftover = rows*cols-n
-    if leftover:
-        col, row = np.meshgrid(np.arange(cols),np.arange(rows)) 
-        inds = [(r, c) for r,c in zip(row.ravel(), col.ravel())]
-        return inds[-leftover:]
-    else:
-        return None
-    
 
 def get_fig_dims(n):
+    n = int(n)
     if n == 2: 
-        return (1,2, get_axes_to_del(1,2,n))
+        return (1,2)
     elif n == 3:
-        return (1,3, get_axes_to_del(1,3,n))
+        return (1,3)
     if n <=4:
-        return (2,2, get_axes_to_del(2,2,n))
+        return (2,2)
     elif n <= 6:
-        return (2,3, get_axes_to_del(2,3,n))
+        return (2,3)
     elif n <= 9: 
-        return (3,3, get_axes_to_del(3,3,n))
+        return (3,3)
     else: 
-        return (4, np.ceil(n/4), get_axes_to_del(4,np.ceil(n/4),n))
+        return (4, int(np.ceil(n/4)))
 
 
 
