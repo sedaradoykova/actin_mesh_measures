@@ -182,7 +182,7 @@ def filter_files(dict_files: str or Path, dict_paths: str or Path, keyword: str)
     res = {}
     for key, val in  dict_files.items():
         for file in val:
-            if keyword in file.lower():
+            if keyword.lower() in file.lower():
                 if key not in res.keys():
                     #res[key] = [file]
                     res[key] = [os.path.join(dict_paths[key], file)]
