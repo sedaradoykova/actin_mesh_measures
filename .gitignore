@@ -7,3 +7,4 @@ meshwork/steerable_gaussian/matlab_files
 meshwork/steerable_gaussian/reading
 meshwork/steerable_gaussian/test*
 process_data/deconv_data
+process_data/sample_data
