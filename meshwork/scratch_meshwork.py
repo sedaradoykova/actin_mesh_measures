@@ -6,23 +6,12 @@ from itertools import chain
 from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
-""" visualise = think about scales for frames -- use the same scale for all subplots 
-- change frame numbers to n,m where n,m are the exact 'normal' indexing (not python)
-- define what the focal plane is 
+"""
+- define what the focal plane is (done by Sabrina and Olivia, see excel.)
     - basal and cytoplasmic meshes
 - more filling - find outline of cell and calculate 
     - maybe sequential with small steps? find outline
 - size of mesh area is more important than percentage cell covered by mesh
- 
-- run steerable filter in matlab on an actin image and see output 
-- suitable replacement for imfilter() in matlab? 
-
-# find minimum of minima & maximum of maxima
-minmin = np.min([np.min(data1), np.min(data2)])
-maxmax = np.max([np.max(data1), np.max(data2)])
-
-im1 = axes[0].imshow(data1, vmin=minmin, vmax=maxmax, extent=(-5,5,-5,5), aspect='auto', cmap='viridis')
-im2 = axes[1].imshow(data2, vmin=minmin, vmax=maxmax, extent=(-5,5,-5,5), aspect='auto', cmap='viridis')
 """
 
 # im = get_image_stack(os.path.join(os.getcwd(), 'meshwork/test_data', '7min_Dual_fov2_deconv_1-3.tiff'), verbose=False)

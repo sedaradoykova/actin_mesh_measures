@@ -4,7 +4,8 @@ from tifffile import imread
 from scipy import io
 from meshwork.steerable_gaussian_debugging import steerable_gauss_2order
 
-
+"""- run steerable filter in matlab on an actin image and see output  
+"""
 
 impath = 'meshwork/test_data/testUTR_3miFRIifov1_01.tif'
 test_im = imread(impath)
