@@ -105,16 +105,16 @@ class ActinImg:
 
 
     def visualise_stack(
-        self, imtype: str='original', substacks: list=None, save: bool=False, dest_dir : str=os.getcwd(), 
+        self, imtype: str='original', substack=None, save: bool=False, dest_dir : str=os.getcwd(), 
         fig_size: tuple=None, colmap: str='inferno', scale_bar: bool=True, bar_locate:str='upper left'
         ):
-        """ Visualise a stack as a tile of all constituent images. 
+        """ Visualise a stack as a tile of all constituent images. By default, all frames will be visualised. 
         ...
         Arguments 
         ---------
         imtype : str='original'
             A string specifying whether to display `original` or `modified` data. 
-        substacks : list
+        substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
         save : bool=False
@@ -130,17 +130,18 @@ class ActinImg:
         """
         if not isinstance(imtype, str):
             raise TypeError('type must be a string.')
-        if substacks and (len(substacks) != 2 or not isinstance(substacks, list)): 
-            raise ValueError('Substacks has to be a list of length=2, specifying a range.')
+        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+            raise ValueError('substack has to be a list of length=2, specifying a range.')
         if imtype=='original':
-            if substacks[0] < 1 or substacks[1] > self.depth:
-                raise ValueError(f'Substacks must be integers in range (1, {self.manipulated_depth}).')
-            if substacks: 
-                data = self.image_stack[substacks[0]-1:substacks[1]].copy() 
-                figrows, figcols = get_fig_dims(substacks[1]-substacks[0]+1)
+            if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+                raise ValueError(f'substack must be integers in range (1, {self.manipulated_depth}).')
+            if substack: 
+                data = self.image_stack[substack[0]-1:substack[1]].copy() 
+                figrows, figcols = get_fig_dims(substack[1]-substack[0]+1)
             else:
                 data = self.image_stack.copy()
                 figrows, figcols = get_fig_dims(self.depth) 
+                substack = [1, self.depth]
                 
             absmin, absmax = np.min(data), np.max(data)
             for n, image in enumerate(data[::1]):
@@ -150,7 +151,7 @@ class ActinImg:
                     scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     ax.add_artist(scalebar)
                 ax.set_axis_off()
-                ax.text(0.66, 0.05, 'n={count}'.format(count=substacks[0]+n),color='#F2F2F2',transform=ax.transAxes)
+                ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes)
 
         elif imtype=='manipulated':
             if self.manipulated_stack is None: 
@@ -158,15 +159,16 @@ class ActinImg:
             if self._projected:
                 self.visualise('manipulated')
             else:
-                if substacks[0] < 1 or substacks[1] > self.depth:
-                    raise ValueError(f'Substacks must be integers in range (1, {self.manipulated_depth}).')
-                if substacks: 
-                    data = self.manipulated_stack[substacks[0]-1:substacks[1]].copy() 
-                    figrows, figcols = get_fig_dims(substacks[1]-substacks[0]+1)
+                if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+                    raise ValueError(f'substack must be integers in range (1, {self.manipulated_depth}).')
+                if substack: 
+                    data = self.manipulated_stack[substack[0]-1:substack[1]].copy() 
+                    figrows, figcols = get_fig_dims(substack[1]-substack[0]+1)
                 else:
                     data = self.manipulated_stack.copy()
                     manipulated_depth = data.shape[0]
-                    figrows, figcols = get_fig_dims(manipulated_depth) 
+                    figrows, figcols = get_fig_dims(manipulated_depth)
+                    substack = [1, self.manipulated_depth]
 
                 absmin, absmax = np.min(data), np.max(data)
                 for n, image in enumerate(data[::1]):
@@ -176,7 +178,7 @@ class ActinImg:
                         scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                         ax.add_artist(scalebar)
                     ax.set_axis_off()
-                    ax.text(0.66, 0.05, 'n={count}'.format(count=substacks[0]+n),color='#F2F2F2',transform=ax.transAxes)
+                    ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes)
 
         else:
             raise ValueError('Image type \'{imtype}\' not recognised; type must be one of  [\'original\', \'manipulated\']'.format(imtype=imtype))
@@ -203,13 +205,13 @@ class ActinImg:
         return None
 
  
-    def z_project_min(self, substacks: list[int]=None):
+    def z_project_min(self, substack=None):
         """ Returns the minimum axial projection of a z-stack. Retains the minimum intensity at every position.
         Can be performed on a sub-range.
         ...
         Arguments 
         ----------
-        substacks : list
+        substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
         See also
@@ -218,12 +220,12 @@ class ActinImg:
         """
         if self.manipulated_stack is None: 
             raise ValueError('Raw data has not been normalised.')
-        if substacks and (len(substacks) != 2 or not isinstance(substacks, list)): 
-            raise ValueError('Substacks has to be a list of length=2, specifying a range.')
-        if substacks[0] < 1 or substacks[1] > self.manipulated_depth:
-            raise ValueError(f'Substacks must be integers in range (1, {self.manipulated_depth}).')
-        if substacks: 
-            data = self.manipulated_stack[substacks[0]-1:substacks[1]].copy() 
+        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+            raise ValueError('substack has to be a list of length=2, specifying a range.')
+        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+            raise ValueError(f'substack must be integers in range (1, {self.manipulated_depth}).')
+        if substack: 
+            data = self.manipulated_stack[substack[0]-1:substack[1]].copy() 
         else:
             data = self.manipulated_stack.copy()
         depth, width, height = data.shape
@@ -236,13 +238,13 @@ class ActinImg:
         return None
 
 
-    def z_project_max(self, substacks: list[int]=None):
+    def z_project_max(self, substack=None):
         """ Returns the maximum axial projection of a z-stack. Retains the maximum intensity at every pixel position. 
         Can be performed on a sub-range.
         ...
         Arguments 
         ----------
-        substacks : list
+        substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
         See also
@@ -251,12 +253,12 @@ class ActinImg:
         """
         if self.manipulated_stack is None: 
             raise ValueError('Raw data has not been normalised.')
-        if substacks and (len(substacks) != 2 or not isinstance(substacks, list)): 
-            raise ValueError('Substacks has to be a list of length=2, specifying a range.')
-        if substacks[0] < 1 or substacks[1] > self.manipulated_depth:
-            raise ValueError(f'Substacks must be integers in range (1, {self.manipulated_depth}).')
-        if substacks: 
-            data = self.manipulated_stack[substacks[0]-1:substacks[1]].copy()
+        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+            raise ValueError('substack has to be a list of length=2, specifying a range.')
+        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+            raise ValueError(f'substack must be integers in range (1, {self.manipulated_depth}).')
+        if substack: 
+            data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
              data = self.manipulated_stack.copy()
         depth, width, height = data.shape
@@ -283,14 +285,14 @@ class ActinImg:
         return None
 
         
-    def steerable_gauss_2order(self, substacks: list=None, sigma: float=2.0, theta: float=0., visualise: bool=True):
+    def steerable_gauss_2order(self, substack=None, sigma: float=2.0, theta: float=0., visualise: bool=True):
         """ Steers an X-Y separable second order Gaussian filter in direction theta.
         Implemented according to W. T. Freeman and E. H. Adelson, "The Design and Use of Steerable Filters", IEEE PAMI, 1991.
         Based on matlab code from Jincheng Pang, Tufts University, 2013.
         ...
         Arguments 
         ---------
-        substacks : list
+        substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
         sigma : float
@@ -305,12 +307,12 @@ class ActinImg:
         """
         if self.manipulated_stack is None: 
             raise ValueError('Raw data has not been normalised.')
-        if substacks and (len(substacks) != 2 or not isinstance(substacks, list)): 
-            raise ValueError('Substacks has to be a list of length=2, specifying a range.')
-        if substacks[0] < 1 or substacks[1] > self.manipulated_depth:
-            raise ValueError(f'Substacks must be integers in range (1, {self.manipulated_depth}).')
-        if substacks: 
-            data = self.manipulated_stack[substacks[0]-1:substacks[1]].copy()
+        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+            raise ValueError('substack has to be a list of length=2, specifying a range.')
+        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+            raise ValueError(f'substack must be integers in range (1, {self.manipulated_depth}).')
+        if substack: 
+            data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
             data = self.manipulated_stack.copy()
 
