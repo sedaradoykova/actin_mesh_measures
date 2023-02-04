@@ -6,7 +6,7 @@ from itertools import chain
 import numpy as np
 
 """ TODO:
-    - some todos down in docstrings 
+    - some down in docstrings 
     - read-in resolution and image dims from metadata
 """
 
@@ -111,7 +111,7 @@ def get_fig_dims(n):
 def list_files_dir_str(root_dir: str or Path): 
     """ Returns a dictionary with all subfolders (keys) and their files listed (values).
     Note: files in the root directory are not returned. 
-    todo input validation
+    ...
 
     Arguments
     ---------
@@ -125,6 +125,9 @@ def list_files_dir_str(root_dir: str or Path):
     dict_paths : dict
         A dictionary mapping a key to paths of the parent folders of the files in dict_files - their keys match.
     """
+    if not os.path.exists(root_dir):
+        raise ValueError(f'Path {root_dir} not found.')
+     
     paths, bases, files = [], [], []
 
     for root, dirs, files_in in os.walk(root_dir):
