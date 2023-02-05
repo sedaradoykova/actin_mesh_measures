@@ -86,6 +86,62 @@ def test_max_proj_substack(z_proj_substack, max_proj_res, max_grad_res):
 #     pass
 
 
+""" Test visualisation functions. """
+# imtype="",ind=1,save=False,dest_dir="",
+
+@pytest.mark.parametrize('args, exp_error', [
+    ([0,1,False], "imtype must be a string"),
+    (['some','some',False], "ind must be an integer"),
+    (['some',1,'some'], "save must be a boolean")
+    ])
+def test_visualise_type_errors(z_proj_im, args, exp_error):
+    actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20)
+    with pytest.raises(TypeError) as err:
+        actimg.visualise(*args)
+    assert exp_error in str(err.value)
+    
+
+@pytest.mark.parametrize('args, exp_error', [
+    (['some',1,False], "not recognised; imtype must be one of ['original', 'manipulated']"),
+    (['original',0,False], "ind must be an integer in range (1, 2)"),
+    (['original',4,False], "ind must be an integer in range (1, 2)"), 
+    (['original',1,False,'notadir'], "Directory not recognised:")
+    ])
+def test_visualise_value_errors(z_proj_im, args, exp_error):
+    actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20)
+    with pytest.raises(ValueError) as err:
+        actimg.visualise(*args)
+    assert exp_error in str(err.value)
+
+
+#imtype=s, substack=ss, save=False, dest_dir=""
+@pytest.mark.parametrize('args, exp_error', [
+    ([0,[1,2],False], "imtype must be a string"),
+    (['original',[1,2],'some'], "save must be a boolean")
+    ])
+def test_visualise_stack_type_errors(z_proj_im, args, exp_error):
+    actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20)
+    with pytest.raises(TypeError) as err:
+        actimg.visualise_stack(*args)
+    assert exp_error in str(err.value)
+    
+
+@pytest.mark.parametrize('args, exp_error', [
+    (['some',[1,2],False], "not recognised; imtype must be one of ['original', 'manipulated']"),
+    (['original',[1,2,3],False], "substack has to be a list of length=2, specifying a range"),
+    (['original',[0,1],False], "substack must be a list of integers in range (1, 2)"),
+    (['original',[1,10],False], "substack must be a list of integers in range (1, 2)"),
+    (['original',[1,2],False,'notadir'], "Directory not recognised:")
+    ])
+def test_visualise_stack_value_errors(z_proj_im, args, exp_error):
+    actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20)
+    with pytest.raises(ValueError) as err:
+        actimg.visualise_stack(*args)
+    assert exp_error in str(err.value)
+
+
+""" Test helper methods. """
+
 def test_nuke(z_proj_im):
     actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20) 
     actimg.normalise()
@@ -104,3 +160,17 @@ def test_call_hist(z_proj_im):
     actimg.normalise() 
     actimg.z_project_max()
     assert actimg._history == ['normalise', 'z_project_max']
+
+
+
+""" Test steerable filter: 
+
+test_steer_tmp(z_proj_im):
+    actimg = ActinImg(z_proj_im, 'test.tiff', (10,10), 2, False, 20) 
+    actimg.normalise()
+    res = actimg.steerable_gauss_2order([1,2],visualise=False,tmp=True)
+    assert actimg._history == ['normalise']
+    actimg.steerable_gauss_2order([1,2],visualise=False,tmp=False)
+    assert actimg._history == ['normalise', 'steerable_gauss_2order']
+    
+"""
