@@ -108,7 +108,7 @@ def threshold_max_proj_res():
         [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]])
 
 @pytest.fixture
-def z_proj_substacks():
+def z_proj_substack():
     ones = np.ones(5)
     im = np.array([
         [*ones, *ones],
