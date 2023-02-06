@@ -5,7 +5,7 @@ from matplotlib_scalebar.scalebar import ScaleBar
 from scipy.ndimage import correlate, morphology
 from skimage import measure
 from dataclasses import dataclass
-from meshwork.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
+from actin_meshwork_analysis.meshwork.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
  
 """ Design considerations: 
     Currently, the original data is kept and modifications happen on a copy which is internally updated 
@@ -218,7 +218,7 @@ class ActinImg:
         Can be performed on a sub-range.
         ...
         Arguments 
-        ----------
+        ---------
         substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
@@ -251,7 +251,7 @@ class ActinImg:
         Can be performed on a sub-range.
         ...
         Arguments 
-        ----------
+        ---------
         substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
@@ -285,10 +285,12 @@ class ActinImg:
         if self.manipulated_stack is None: 
             raise ValueError('Raw data has not been normalised.')
         if self._projected is None: 
-            raise ValueError('Data has not been projected in z.')
-        if threshold < 0: 
-            raise ValueError('Threshold cannot be negative.')
-        self.manipulated_stack = np.array([1 if p > threshold else 0 for p in self.manipulated_stack.ravel()]).reshape(*self.shape)
+            print('Data has not been projected in z.') # raise ValueError
+        if not isinstance(threshold, float):
+            raise TypeError('Threshold must be a float.')
+        if threshold < 0 or threshold >=1: 
+            raise ValueError('Threshold cannot be <0 or >= 1.')
+        self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
         self._call_hist('threshold')
         return None
 
@@ -400,7 +402,89 @@ class ActinImg:
             self._call_hist('steerable_gauss_2order')
             return None
 
+
+    def steerable_gauss_2order_thetas(self, thetas, sigma: float=2.0, substack=None, visualise=False):
+        """ Applies steerable second order Gaussian filters oriented in multiple directions (specified by `thetas`). 
+        ...
+        Arguments
+        ---------
+        thetas : list
+            A list of floats or integers, specifying the directions in which the Gaussian should be steered.
+        sigma : float=2.0
+            The standard deviation of the Gaussian.
+        substack : list
+            A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
+            Note: indexing is from 1 to `n_frames` in image stack. 
+        Returns 
+        -------
+        TODO: finish docstrings, input validation, visualisation vmax/vmin
+        """
+        results = dict.fromkeys(thetas)
+        for angle in thetas:
+            results[angle] = self.steerable_gauss_2order(theta=angle, substack=substack,sigma=sigma,visualise=False,tmp=True)
+        response_stack = np.array([value['response'] for key, value in results.items()])
+        response_stack = np.mean(response_stack, 0)
+
+        if visualise:
+            titles = [f'n_{str(n)}' for n in np.arange(substack[0],substack[1]+1)]
+            figrows, figcols = get_fig_dims(len(thetas))
+            for n, (image, title) in enumerate(zip(np.rollaxis(response_stack, 0), titles)):
+                ax = plt.subplot(figrows,figcols,n+1)
+                ax.imshow(image, cmap='gray')
+                ax.set_axis_off()
+                ax.set_title(title)
+            plt.subplots_adjust(wspace=0.01, hspace=0.2)
+            plt.show();
+
+        self.manipulated_stack = response_stack
+        self.manipulated_depth = substack[1]-substack[0]+1
+        theta_string = f':{thetas[0]}:{thetas[-1]}:{len(thetas)}'
+        self._call_hist('steerable_gauss_2order_thetas'+theta_string)
+        return None 
+
+    def _get_oriented_filters(self, theta, sigma):
+        """ Helper method; 
+        TODO: finish docstrings, input validation
+        """
+        #### Separable filter kernels
+        # Gaussian kernel mesh grid  
+        Wx = np.floor((8/2)*sigma)
+        Wx = Wx if Wx >= 1 else 1
+        x = np.arange(-Wx,Wx+1) # determines kernel size 
+        xx,yy = np.meshgrid(x,x)
+        theta = np.deg2rad(-theta) # convert to radians, clockwise
+        # Second derivative of the Gaussian
+        g0 = np.array(np.exp(-(xx**2+yy**2)/(2*sigma**2))/(sigma*np.sqrt(2*np.pi)))
+        # Separable filter kernels 
+        G2a = np.array(-g0/sigma**2+g0*xx**2/sigma**4)
+        G2b =  np.array(g0*xx*yy/sigma**4)
+        G2c = np.array(-g0/sigma**2+g0*yy**2/sigma**4)
+        oriented_filter = np.array((np.cos(theta))**2*G2a + np.sin(theta)**2*G2c - 2*np.cos(theta)*np.sin(theta)*G2b)
+        return oriented_filter 
     
+    def _visualise_oriented_filters(self, thetas, sigma, save: bool=False, dest_dir: str=os.getcwd()): 
+        """ Helper method; 
+        TODO: finish docstrings, input validation, visualisation vmax/vmin
+        """
+        all_filters = []
+        for angle in thetas:
+            all_filters.append(self._get_oriented_filters(theta=angle,sigma=sigma))
+        titles = [f'theta_{str(n)}' for n in thetas]
+        figrows, figcols = get_fig_dims(len(thetas)) 
+        for n, (image, title) in enumerate(zip(np.rollaxis(np.asarray(all_filters), 0), titles)):
+            ax = plt.subplot(figrows,figcols,n+1)
+            ax.imshow(image, cmap='gray')
+            ax.set_axis_off()
+            ax.set_title(title)
+        plt.subplots_adjust(wspace=0.01, hspace=0.2)
+        if save: 
+            imtitle = f'{self.title}_oriented_filters{":".join(thetas[0], thetas[-1], len(thetas))}'
+            dest = os.path.join(dest_dir, imtitle, '.png')
+            plt.imsave(dest)
+        else:
+            plt.show();
+
+
     def meshwork_density(self):
         """ Accepts a binary image and returns the meshwork density.
         Uses the `skimage.measure()` function.  """
