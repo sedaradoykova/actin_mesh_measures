@@ -232,7 +232,9 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            print('Raw data has not been normalised.') #raise ValueError
+            print('Raw data has not been normalised; using raw data.') #raise ValueError
+        else: 
+            use_raw = False
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
@@ -270,7 +272,9 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            print('Raw data has not been normalised.') #raise ValueError
+            print('Raw data has not been normalised; using raw data.') #raise ValueError
+        else: 
+            use_raw = False
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
@@ -297,18 +301,15 @@ class ActinImg:
         """ Returns a binary thresholded image. 
         """
         if not self._history or 'normalise' not in self._history: 
-            use_raw = True
-            print('Raw data has not been normalised.') #raise ValueError
+            raise ValueError('Raw data has not been normalised.')
         if self._projected is None: 
             print('Data has not been projected in z.') #raise ValueError
         if not isinstance(threshold, float):
             raise TypeError('Threshold must be a float.')
         if threshold < 0 or threshold >=1: 
             raise ValueError('Threshold cannot be <0 or >= 1.')
-        if not use_raw: 
-            self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
-        else:
-            self.manipulated_stack =  (self.image_stack > threshold).astype('int')
+            
+        self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
         self._call_hist('threshold')
         return None
 
