@@ -20,27 +20,32 @@ if not os.path.exists(save_destdir):
 """normalise --> steer 2o Gauss --> min z proj --> threshold; also max z proj on raw data"""
 theta_x6 = np.arange(0,360,60)
 
-actimg = get_ActinImg(filename, os.path.join(data_path,celltype))
-actimg.visualise_stack(imtype='original',save=True,dest_dir=save_destdir)
+# substacks for focal planes; arbitrarily defined for now
+substack_list = [[1,3],[1,3],[3,8],[1,4],[1,3],[3,6],[3,6]]
 
 
-actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=theta_x6,sigma=2,substack=[1,3],visualise=False)
-#actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
-actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
+for name, subst in zip(all_filenames[celltype], substack_list):
+    actimg = get_ActinImg(name, all_filepaths[celltype])
+    actimg.visualise_stack(imtype='original',save=True,dest_dir=save_destdir) 
 
 
-actimg.z_project_min()
-actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
+    actimg.normalise()
+    actimg.steerable_gauss_2order_thetas(thetas=theta_x6,sigma=2,substack=subst,visualise=False)
+    #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
+    actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
 
 
-actimg.threshold(0.002)
-actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
+    actimg.z_project_min()
+    actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
 
 
-actimg.nuke()
-actimg.z_project_max()
-actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
+    actimg.threshold(0.002)
+    actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
+
+
+    actimg.nuke()
+    actimg.z_project_max()
+    actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
 
 
 # # the output of cv2 and scipy functions matches for averaged out thetas with normalised image input
