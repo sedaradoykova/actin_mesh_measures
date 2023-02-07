@@ -101,9 +101,10 @@ class ActinImg:
             plt.gca().add_artist(scalebar)
         plt.axis('off')
         if save: 
-            imtitle = f'{self.title}_{"_".join(self._history)}' if self._history else self.title
-            dest = os.path.join(dest_dir, imtitle, '.png')
-            plt.imsave(dest)
+            imtitle = f'{self.title}_{"_".join(self._history)}.png' if self._history else f'{self.title}.png'
+            dest = os.path.join(dest_dir, imtitle)
+            plt.savefig(dest, dpi=600)
+            plt.close()
         else:
             plt.show();
 
@@ -168,7 +169,7 @@ class ActinImg:
             if not self._history:
                 raise ValueError('Raw data has not been processed yet.')
             if self._projected:
-                self.visualise('manipulated',save=save,dest_dir=dest_dir,colmap=colmap,scale_bar=scale_bar,bar_locate=bar_locate)
+                self.visualise(imtype='manipulated',save=save,dest_dir=dest_dir,colmap=colmap,scale_bar=scale_bar,bar_locate=bar_locate)
                 return None
             else:
                 if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
@@ -198,9 +199,10 @@ class ActinImg:
         plt.subplots_adjust(wspace=0.01, hspace=0.01)
 
         if save==True: 
-            imtitle = f'{self.title}_{"_".join(self._history)}' if self._history else self.title
-            dest = os.path.join(dest_dir, imtitle, '.png')
-            plt.imsave(dest)
+            imtitle = f'{self.title}_{"_".join(self._history)}.png' if self._history else f'{self.title}.png'
+            dest = os.path.join(dest_dir, imtitle)
+            plt.savefig(dest, dpi=600)
+            plt.close()
         else:
             plt.show();
 
@@ -249,8 +251,9 @@ class ActinImg:
             data = self.manipulated_stack.copy()
         depth, width, height = data.shape
         
-        flat_res = [min(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
-        self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
+        # flat_res = [min(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
+        # self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
+        self.manipulated_stack = np.min(data,0)
         self.manipulated_depth = 1
         self._projected = True
         self._call_hist('z_project_min')
@@ -289,8 +292,9 @@ class ActinImg:
             data = self.manipulated_stack.copy()
         depth, width, height = data.shape
 
-        flat_res = [max(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
-        self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
+        # flat_res = [max(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
+        # self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
+        self.manipulated_stack = np.max(data,0)
         self.manipulated_depth = 1
         self._projected = True
         self._call_hist('z_project_max')
@@ -308,7 +312,7 @@ class ActinImg:
             raise TypeError('Threshold must be a float.')
         if threshold < 0 or threshold >=1: 
             raise ValueError('Threshold cannot be <0 or >= 1.')
-            
+
         self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
         self._call_hist('threshold')
         return None
@@ -457,11 +461,11 @@ class ActinImg:
 
         self.manipulated_stack = response_stack
         self.manipulated_depth = substack[1]-substack[0]+1
-        theta_string = f':{thetas[0]}:{thetas[-1]}:{len(thetas)}'
+        theta_string = f'+{thetas[0]}+{thetas[-1]}+{len(thetas)}'
         self._call_hist('steerable_gauss_2order_thetas'+theta_string)
         return None 
 
-    def _get_oriented_filters(self, theta, sigma):
+    def _get_oriented_filter(self, theta, sigma):
         """ Helper method; 
         TODO: finish docstrings, input validation
         """
@@ -487,7 +491,7 @@ class ActinImg:
         """
         all_filters = []
         for angle in thetas:
-            all_filters.append(self._get_oriented_filters(theta=angle,sigma=sigma))
+            all_filters.append(self._get_oriented_filter(theta=angle,sigma=sigma))
         titles = [f'theta_{str(n)}' for n in thetas]
         figrows, figcols = get_fig_dims(len(thetas)) 
         for n, (image, title) in enumerate(zip(np.rollaxis(np.asarray(all_filters), 0), titles)):
@@ -497,9 +501,10 @@ class ActinImg:
             ax.set_title(title)
         plt.subplots_adjust(wspace=0.01, hspace=0.2)
         if save: 
-            imtitle = f'{self.title}_oriented_filters{":".join(thetas[0], thetas[-1], len(thetas))}'
-            dest = os.path.join(dest_dir, imtitle, '.png')
-            plt.imsave(dest)
+            imtitle = f'{self.title}_oriented_filters{"+".join(str(i) for i in [thetas[0], thetas[-1], len(thetas)])}.png'
+            dest = os.path.join(dest_dir, imtitle)
+            plt.savefig(dest, dpi=600)
+            plt.close()
         else:
             plt.show();
 
