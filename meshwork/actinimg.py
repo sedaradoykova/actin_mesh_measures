@@ -72,15 +72,15 @@ class ActinImg:
         """
         if not isinstance(imtype, str) or not isinstance(ind, int):
             raise TypeError('imtype must be a string and ind must be an integer.')
-        if (scale_bar and self.resolution is None):
+        if scale_bar and self.resolution is None:
             raise ValueError('Resolution has not been specified.')
         if not isinstance(save, bool):
             raise TypeError('save must be a boolean.')
         if not os.path.exists(dest_dir):
             raise ValueError(f'Directory not recognised: {dest_dir}.')
         if imtype=='manipulated':
-            if self.manipulated_stack is None: 
-                raise ValueError('Raw data has not been normalised.')
+            if not self._history:
+                raise ValueError('Raw data has not been processed yet.')
             if ind < 1 or ind > self.manipulated_depth:
                 raise ValueError(f'ind must be an integer in range (1, {self.manipulated_depth})')        
             if self._projected or self.manipulated_depth == 1:
@@ -96,7 +96,7 @@ class ActinImg:
                 plt.imshow(self.image_stack, cmap=colmap)
         else: 
             raise ValueError('Image type \'{imtype}\' not recognised; imtype must be one of [\'original\', \'manipulated\']'.format(imtype=imtype))
-        if (scale_bar and self.resolution is not None):
+        if scale_bar:
             scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
             plt.gca().add_artist(scalebar)
         plt.axis('off')
@@ -140,6 +140,9 @@ class ActinImg:
             raise TypeError('save must be a boolean.')
         if not os.path.exists(dest_dir):
             raise ValueError(f'Directory not recognised: {dest_dir}.')
+        if scale_bar and self.resolution is None:
+            raise ValueError('Resolution has not been specified.')
+
         if imtype=='original':
             if substack is not None and (substack[0] < 1 or substack[1] > self.depth):
                 raise ValueError(f'substack must be a list of integers in range (1, {self.depth}).')
@@ -155,17 +158,18 @@ class ActinImg:
             for n, image in enumerate(data[::1]):
                 ax = plt.subplot(figrows,figcols,n+1)
                 ax.imshow(image, cmap=colmap, vmin=absmin, vmax=absmax)
-                if (scale_bar and self.resolution is not None):
+                if scale_bar:
                     scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     ax.add_artist(scalebar)
                 ax.set_axis_off()
                 ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes)
 
         elif imtype=='manipulated':
-            if self.manipulated_stack is None: 
-                raise ValueError('Raw data has not been normalised.')
+            if not self._history:
+                raise ValueError('Raw data has not been processed yet.')
             if self._projected:
-                self.visualise('manipulated')
+                self.visualise('manipulated',save=save,dest_dir=dest_dir,colmap=colmap,scale_bar=scale_bar,bar_locate=bar_locate)
+                return None
             else:
                 if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
                     raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
@@ -226,14 +230,19 @@ class ActinImg:
         --------
         ActImg.z_project_max()
         """
-        if self.manipulated_stack is None: 
-            raise ValueError('Raw data has not been normalised.')
+        if not self._history or 'normalise' not in self._history: 
+            use_raw = True
+            print('Raw data has not been normalised.') #raise ValueError
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
             raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
-        if substack: 
-            data = self.manipulated_stack[substack[0]-1:substack[1]].copy() 
+        if substack and use_raw:
+            data = self.image_stack[substack[0]-1:substack[1]].copy() 
+        elif use_raw:
+            data = self.image_stack.copy() 
+        elif substack: 
+            data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
             data = self.manipulated_stack.copy()
         depth, width, height = data.shape
@@ -259,16 +268,21 @@ class ActinImg:
         --------
         ActImg.z_project_min()   
         """
-        if self.manipulated_stack is None: 
-            raise ValueError('Raw data has not been normalised.')
+        if not self._history or 'normalise' not in self._history: 
+            use_raw = True
+            print('Raw data has not been normalised.') #raise ValueError
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
             raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
-        if substack: 
+        if substack and use_raw:
+            data = self.image_stack[substack[0]-1:substack[1]].copy() 
+        elif use_raw:
+            data = self.image_stack.copy() 
+        elif substack: 
             data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
-             data = self.manipulated_stack.copy()
+            data = self.manipulated_stack.copy()
         depth, width, height = data.shape
 
         flat_res = [max(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
@@ -282,15 +296,19 @@ class ActinImg:
     def threshold(self, threshold: float):
         """ Returns a binary thresholded image. 
         """
-        if self.manipulated_stack is None: 
-            raise ValueError('Raw data has not been normalised.')
+        if not self._history or 'normalise' not in self._history: 
+            use_raw = True
+            print('Raw data has not been normalised.') #raise ValueError
         if self._projected is None: 
-            print('Data has not been projected in z.') # raise ValueError
+            print('Data has not been projected in z.') #raise ValueError
         if not isinstance(threshold, float):
             raise TypeError('Threshold must be a float.')
         if threshold < 0 or threshold >=1: 
             raise ValueError('Threshold cannot be <0 or >= 1.')
-        self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
+        if not use_raw: 
+            self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
+        else:
+            self.manipulated_stack =  (self.image_stack > threshold).astype('int')
         self._call_hist('threshold')
         return None
 
@@ -317,8 +335,8 @@ class ActinImg:
         dictionary (optional)
             Dictionary maps the response of the theta-rotated derivative and the oriented filter. 
         """
-        if self.manipulated_stack is None: 
-            raise ValueError('Raw data has not been normalised.')
+        if not self._history or 'normalise' not in self._history: 
+            raise ValueError('Raw data has not been normalised.') #use_raw = True
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
