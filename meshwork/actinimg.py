@@ -249,10 +249,7 @@ class ActinImg:
             data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
             data = self.manipulated_stack.copy()
-        depth, width, height = data.shape
-        
-        # flat_res = [min(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
-        # self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
+
         self.manipulated_stack = np.min(data,0)
         self.manipulated_depth = 1
         self._projected = True
@@ -290,10 +287,7 @@ class ActinImg:
             data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
         else:
             data = self.manipulated_stack.copy()
-        depth, width, height = data.shape
 
-        # flat_res = [max(row) for row in np.transpose(np.array(data).ravel().reshape((depth,width*height)))]
-        # self.manipulated_stack = np.array(flat_res).reshape(*self.shape)
         self.manipulated_stack = np.max(data,0)
         self.manipulated_depth = 1
         self._projected = True
