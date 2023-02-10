@@ -93,7 +93,9 @@ def get_resolution(meta: dict, nm: bool=False):
 
 def get_fig_dims(n):
     n = int(n)
-    if n == 2: 
+    if n == 1:
+        return (1,1)
+    elif n == 2: 
         return (1,2)
     elif n == 3:
         return (1,3)
