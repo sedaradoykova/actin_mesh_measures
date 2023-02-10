@@ -237,24 +237,28 @@ class ActinImg:
             print('Raw data has not been normalised; using raw data.') #raise ValueError
         else: 
             use_raw = False
-        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+        if substack and (len(substack) > 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
         if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
             raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
-        if substack and use_raw:
-            data = self.image_stack[substack[0]-1:substack[1]].copy() 
-        elif use_raw:
-            data = self.image_stack.copy() 
-        elif substack: 
-            data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
-        else:
-            data = self.manipulated_stack.copy()
+        if substack and len(substack)==1:
+            print('Cannot perform minimum projection on one frame, returning object.')
+            return None
+        else: 
+            if substack and use_raw:
+                data = self.image_stack[substack[0]-1:substack[1]].copy() 
+            elif use_raw:
+                data = self.image_stack.copy() 
+            elif substack: 
+                data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
+            else:
+                data = self.manipulated_stack.copy()
 
-        self.manipulated_stack = np.min(data,0)
-        self.manipulated_depth = 1
-        self._projected = True
-        self._call_hist('z_project_min')
-        return None
+            self.manipulated_stack = np.min(data,0)
+            self.manipulated_depth = 1
+            self._projected = True
+            self._call_hist('z_project_min')
+            return None
 
 
     def z_project_max(self, substack=None):
@@ -336,11 +340,16 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             raise ValueError('Raw data has not been normalised.') #use_raw = True
-        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
-            raise ValueError('substack has to be a list of length=2, specifying a range.')
-        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
-            raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
-        if substack: 
+        if substack and (len(substack) > 2 or not isinstance(substack, list)): 
+            raise ValueError('substack has to be a list of length 1 or 2, specifying a range.')
+        if substack and len(substack)==1:
+            depth, rows, cols = 1, *self.shape
+            data = np.empty((depth, rows, cols))
+            data[0] = self.manipulated_stack[substack[0]-1].copy()
+
+        elif substack and len(substack)==2: 
+            if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+                raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
             data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
             depth, rows, cols = substack[1]-substack[0]+1, *self.shape
         else:
@@ -454,7 +463,10 @@ class ActinImg:
             plt.show();
 
         self.manipulated_stack = response_stack
-        self.manipulated_depth = substack[1]-substack[0]+1
+        if substack and len(substack)==1:
+            self.manipulated_depth = 1
+        elif substack and len(substack)==2: 
+            self.manipulated_depth = substack[1]-substack[0]+1
         theta_string = f'+{thetas[0]}+{thetas[-1]}+{len(thetas)}'
         self._call_hist('steerable_gauss_2order_thetas'+theta_string)
         return None 
