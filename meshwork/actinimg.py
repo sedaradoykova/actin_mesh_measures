@@ -14,12 +14,11 @@ from actin_meshwork_analysis.meshwork.utils import get_image_stack, get_meta, ge
 
     TODO: 
         - [ ] Annotate steps of analysis in docstrings? or separately
-        - [ ] meshwork_size and meshwork_density methods  
+        - [ ] meshwork_size and meshwork_density methods
+        - [ ] add voxel size attribute (i.e. resolution in z) in metadata  
         - [ ] test steerable second order filter but how?
-        - [ ! ] BUG in steerable filter: inconsistent results (see scratch) 
-        - [ ! ] BUG in z_proj_min/max: induced by complex numbers
+        - [ ! ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
         - when to return self?   
-        - think about selecting particular frames instead of specifying ranges (projection, plotting)...
 """
 
 @dataclass()
@@ -34,6 +33,7 @@ class ActinImg:
     meta: dict=None
     manipulated_stack: np.array=None
     manipulated_depth: int=0
+    manipulated_substack_inds = None
 
     def __post_init__(self):
         if not isinstance(self.image_stack, np.ndarray) and not isinstance(self.image_stack, tuple):
@@ -101,9 +101,9 @@ class ActinImg:
             plt.gca().add_artist(scalebar)
         plt.axis('off')
         if save: 
-            imtitle = f'{self.title}_{"_".join(self._history)}.png' if self._history else f'{self.title}.png'
+            imtitle = f'{self.title.split(".")[0]}_{imtype}_{"_".join(self._history)}.png' if self._history else f'{self.title.split(".")[0]}_{imtype}.png'
             dest = os.path.join(dest_dir, imtitle)
-            plt.savefig(dest, dpi=600)
+            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.close()
         else:
             plt.show();
@@ -156,6 +156,7 @@ class ActinImg:
                 substack = [1, self.depth]
                 
             absmin, absmax = np.min(data), np.max(data)
+            plt.figure(figsize=(8, 8*(figrows/figcols))) 
             for n, image in enumerate(data[::1]):
                 ax = plt.subplot(figrows,figcols,n+1)
                 ax.imshow(image, cmap=colmap, vmin=absmin, vmax=absmax)
@@ -163,7 +164,7 @@ class ActinImg:
                     scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     ax.add_artist(scalebar)
                 ax.set_axis_off()
-                ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes)
+                ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes,fontsize=8)
 
         elif imtype=='manipulated':
             if not self._history:
@@ -191,17 +192,23 @@ class ActinImg:
                         scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                         ax.add_artist(scalebar)
                     ax.set_axis_off()
-                    ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes)
+                    if substack and self.manipulated_substack_inds:
+                        ax.text(0.66, 0.05, 'n={count}'.format(count=self.manipulated_substack_inds[0]-substack[0]+1+n),color='#F2F2F2',transform=ax.transAxes,fontsize=8)
+                    elif self.manipulated_substack_inds and not substack:
+                        ax.text(0.66, 0.05, 'n={count}'.format(count=self.manipulated_substack_inds[0]+n),color='#F2F2F2',transform=ax.transAxes,fontsize=8)
+                    elif substack and not self.manipulated_substack_inds:
+                        ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes,fontsize=8)
 
         else:
             raise ValueError('Image type \'{imtype}\' not recognised; imtype must be one of [\'original\', \'manipulated\']'.format(imtype=imtype))
 
-        plt.subplots_adjust(wspace=0.01, hspace=0.01)
+        plt.subplots_adjust(wspace=0.01, hspace=0.02)
+        plt.tight_layout()
 
         if save==True: 
-            imtitle = f'{self.title}_{"_".join(self._history)}.png' if self._history else f'{self.title}.png'
+            imtitle = f'{self.title.split(".")[0]}_{imtype}_{"_".join(self._history)}.png' if self._history else f'{self.title.split(".")[0]}_{imtype}.png'
             dest = os.path.join(dest_dir, imtitle)
-            plt.savefig(dest, dpi=600)
+            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.close()
         else:
             plt.show();
@@ -418,6 +425,7 @@ class ActinImg:
                 ax.set_axis_off()
                 ax.set_title(title)
             plt.subplots_adjust(wspace=0.01, hspace=0.01)
+            plt.tight_layout()
             plt.show();
 
         if tmp: 
@@ -425,6 +433,7 @@ class ActinImg:
         else:
             self.manipulated_stack = response_stack
             self.manipulated_depth = depth
+            self.manipulated_substack_inds = substack
             self._call_hist('steerable_gauss_2order')
             return None
 
@@ -459,14 +468,17 @@ class ActinImg:
                 ax.imshow(image, cmap='gray')
                 ax.set_axis_off()
                 ax.set_title(title)
-            plt.subplots_adjust(wspace=0.01, hspace=0.2)
+            plt.subplots_adjust(wspace=0.02, hspace=0.02)
+            plt.tight_layout()
             plt.show();
+
 
         self.manipulated_stack = response_stack
         if substack and len(substack)==1:
             self.manipulated_depth = 1
         elif substack and len(substack)==2: 
             self.manipulated_depth = substack[1]-substack[0]+1
+        self.manipulated_substack_inds = substack
         theta_string = f'+{thetas[0]}+{thetas[-1]}+{len(thetas)}'
         self._call_hist('steerable_gauss_2order_thetas'+theta_string)
         return None 
@@ -505,11 +517,12 @@ class ActinImg:
             ax.imshow(image, cmap='gray')
             ax.set_axis_off()
             ax.set_title(title)
-        plt.subplots_adjust(wspace=0.01, hspace=0.2)
+        plt.subplots_adjust(wspace=0.01, hspace=0.03)
+        plt.tight_layout()
         if save: 
-            imtitle = f'{self.title}_oriented_filters{"+".join(str(i) for i in [thetas[0], thetas[-1], len(thetas)])}.png'
+            imtitle = f'{self.title.split(".")[0]}_oriented_filters{"+".join(str(i) for i in [thetas[0], thetas[-1], len(thetas)])}.png'
             dest = os.path.join(dest_dir, imtitle)
-            plt.savefig(dest, dpi=600)
+            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.close()
         else:
             plt.show();
@@ -541,6 +554,7 @@ class ActinImg:
         """
         self.manipulated_stack = None
         self.manipulated_depth = 0
+        self.manipulated_substack_inds = None
         self._projected = None
         self._history = None
         return None
