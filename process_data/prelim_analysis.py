@@ -73,7 +73,7 @@ focal_planes['Cytoplasmic'] = focal_planes['Cytoplasmic'].apply(lambda val: [int
         nuke 
         cytosolic: normalise --> steer 2o Gauss --> min z proj --> threshold """
 
-t_start = time.perf_counter()
+t_start = time.time()
 
 for celltype in celltypes:
     curr_filenames, curr_filepaths = all_filenames[celltype], all_filepaths[celltype]
@@ -132,8 +132,10 @@ for celltype in celltypes:
     all_results, all_respaths = list_files_dir_str(os.path.join(data_path, save_destdir))
     print_summary(all_results)
 
-t_end = time.perf_counter()
-print(f"Analysis completed in {(t_end - t_start)/60:0.3f} mins.")
+delta_t = time.time() - t_start
+print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
+
+# Analysis completed in 00:13:00.
 
 ### UNTRANSDUCED 
 # basal                                               : 1min  : 33 == 11*3
@@ -160,10 +162,54 @@ print(f"Analysis completed in {(t_end - t_start)/60:0.3f} mins.")
 
 # Total files                                         : 294
 
+all_cars = dict.fromkeys(['original', 'max_proj', 'steer_gauss', 'min_proj', 'threshold'])
+carsres = [res for res in os.listdir(data_path+'/_results_CARs') if 'png' in res]
 
-# for res in os.listdir(data_path+'/_results_Untr'):
-#     if 'png' in res:
-#         print(res)
+all_cars['original'] = [res for res in carsres if 'original' in res]
+all_cars['max_proj'] = [res for res in carsres if 'max' in res]
+carsres = [res for res in os.listdir(data_path+'/_results_CARs/basal') if 'png' in res]
+all_cars['steer_gauss'] = [res for res in carsres if '300+6.png' in res]
+all_cars['min_proj'] = [res for res in carsres if 'min.png' in res]
+all_cars['threshold'] = [res for res in carsres if 'threshold.png' in res]
+
+with open("actin_meshwork_analysis\\process_data\\deconv_data\\cars_all_prelim.md", "w") as f:
+    for i in range(len(curr_filenames)):
+        f.write(f'# {curr_filenames[i]}')
+        f.write('\n\n')
+        f.write(f'![](_results_CARs/{all_cars["original"][i]})'+'{ width=700px } ')
+        f.write('\n\n')
+        f.write('**Maximum z-projection**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/{all_cars["max_proj"][i]})'+'{ height=300px }  ')
+        f.write('\n\n')
+        f.write('## Basal network  ')
+        f.write('\n\n')
+        f.write('**Steerable second order Gaussian filter**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/basal/{all_cars["steer_gauss"][i]})'+'{ height=300px }  ')
+        f.write('\n')
+        f.write('**Minimum z-projection**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/basal/{all_cars["min_proj"][i]})'+'{ height=300px }  ')
+        f.write('\n')
+        f.write('**Binary thresholding**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/basal/{all_cars["threshold"][i]})'+'{ height=300px }  ')
+        f.write('\n\n')
+        f.write('## Cytosolic network  ')
+        f.write('\n\n')
+        f.write('**Steerable second order Gaussian filter**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/cytosolic/{all_cars["steer_gauss"][i]})'+'{ height=300px }  ')
+        f.write('\n')
+        f.write('**Minimum z-projection**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/cytosolic/{all_cars["min_proj"][i]})'+'{ height=300px }  ')
+        f.write('\n')
+        f.write('**Binary thresholding**  ')
+        f.write('\n')
+        f.write(f'![](_results_CARs/cytosolic/{all_cars["threshold"][i]})'+'{ height=300px }  ')
+        f.write('\n\n\n')
 
 
 
