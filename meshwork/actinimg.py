@@ -241,7 +241,7 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            print('Raw data has not been normalised; using raw data.') #raise ValueError
+            #print('Raw data has not been normalised; using raw data.') #raise ValueError
         else: 
             use_raw = False
         if substack and (len(substack) > 2 or not isinstance(substack, list)): 
@@ -283,7 +283,7 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            print('Raw data has not been normalised; using raw data.') #raise ValueError
+            #print('Raw data has not been normalised; using raw data.') #raise ValueError
         else: 
             use_raw = False
         if substack and (len(substack) != 2 or not isinstance(substack, list)): 
