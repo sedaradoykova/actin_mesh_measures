@@ -23,22 +23,23 @@ class ActinImgCollection:
             raise TypeError('Root path must be a string.')
         if not os.path.exists(self.root_path):
             raise ValueError(f'Path not found: {self.root_path}.')
-        if not isinstance(self.res_path, str):
-            raise TypeError('Results path must be a string.')
-        if not os.path.exists(self.res_path):
-            raise ValueError(f'Results path not found: {self.root_path}.')
+        # if not isinstance(self.res_path, str):
+        #     raise TypeError('Results path must be a string.')
+        # if not os.path.exists(self.res_path):
+        #     raise ValueError(f'Results path not found: {self.root_path}.')
         # read in data and extract file names/paths.
         self._all_filenames, self._all_filepaths = list_files_dir_str(self.root_path)
         self._filenames_to_del = None
 
 
 
-    def print_summary(self, specify_subdirs):
+    def print_summary(self, specify_subdirs=None):
         """ Summary of files. """
-        if not isinstance(specify_subdirs, list): 
-            raise TypeError('subdirs must be a list.')
-        if any([not isinstance(item, str) for item in specify_subdirs]):
-            raise TypeError('subdirs list must contain only strings.')
+        if specify_subdirs:
+            if not isinstance(specify_subdirs, list): 
+                raise TypeError('subdirs must be a list.')
+            if any([not isinstance(item, str) for item in specify_subdirs]):
+                raise TypeError('subdirs list must contain only strings.')
         
         for cat in ['1min', '3min', '8min']:
             for key, vals in self._all_filenames.items():
@@ -81,8 +82,8 @@ class ActinImgCollection:
             raise ValueError(f'Path not found: {filepath}.')
 
         focal_planes = pd.read_csv(filepath)
-        if list(focal_planes.columns) != ['File name', 'Basal', 'Cytoplasmic', 'Notes']:
-            raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes']")
+        # if list(focal_planes.columns) != ['File name', 'Basal', 'Cytoplasmic', 'Notes']:
+        #     raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes']")
 
         # if basal or cytosolic planes are not speficied, discard   
         self._filenames_to_del = focal_planes['File name'][focal_planes[['Basal', 'Cytoplasmic']].isna().any(axis=1)].tolist()
@@ -157,7 +158,7 @@ class ActinImgCollection:
 
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             # !!!!! INTEGRATE PIPELINE HERE 
-            
+            # fix parametrisation!!!! 
             """ Analysis:
                     max z proj on raw data
                     nuke
@@ -168,7 +169,7 @@ class ActinImgCollection:
             actin_img_instance.nuke()
             actin_img_instance.normalise()
 
-            actin_img_instance.steerable_gauss_2order_thetas(thetas=theta_x6,sigma=2,substack=stack,visualise=False)
+            actin_img_instance.steerable_gauss_2order_thetas(thetas=np.arange(0,360,60),sigma=2,substack=stack,visualise=False)
             #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
@@ -179,12 +180,15 @@ class ActinImgCollection:
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
         if print_summary:
-            all_results, all_respaths = list_files_dir_str(os.path.join(data_path, self.__save_destdir))
-            print_summary(all_results)
-        
+            self.print_summary([os.path.basename(self.__save_destdir)]) 
 
 
     def visualise_html(self, subdir):
+        """ ??? 
+        Returns
+        -------
+        hidden: makes file named as ..... 
+        """
         curr_filenames, curr_filepath = self._all_filenames[subdir], self._all_filepaths[subdir]
         curr_filenames = [f for f in curr_filenames if 'tif' in f and f not in self._filenames_to_del]
 
@@ -204,7 +208,7 @@ class ActinImgCollection:
             all_output_types[key] = [res for res in results_filenames if val_check in res]
 
 
-        with open(os.path.join(self.res_path,(subdir[0:10]+".md"), "w")) as f:
+        with open(os.path.join(self.__save_destdir,(subdir[0:10]+'.md')), 'w') as f:
             for i in range(len(curr_filenames)):
                 f.write(f'# {curr_filenames[i]}')
                 f.write('\n\n')
@@ -249,9 +253,8 @@ class ActinImgCollection:
         t_start = time.time()
         for subdir in tqdm(self.only_subdirs, desc='cell types'):
 
-            curr_filenames, curr_filepath = self.initialise_curr_filenames_and_planes(subdir)
-
-            self.initialise_res_dir()
+            curr_filenames, curr_filepath = self.initialise_curr_filenames_and_planes(subdir=subdir)
+            self.initialise_res_dir(subdir=subdir)
 
             for name in tqdm(curr_filenames, desc='files'):
                 self.analysis_pipeline(filename=name,filepath=curr_filepath, print_summary=True)
@@ -267,19 +270,18 @@ class ActinImgCollection:
 
 
 
+if __name__ == '__main__':
+    data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data")
+    #data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data")
 
 
-data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data")
-#data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data")
+    only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_imageJ']
+    focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_v2.csv')
+
+    theta_x6 = np.arange(0,360,60)
 
 
-only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_imageJ']
-focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_v2.csv')
-
-theta_x6 = np.arange(0,360,60)
-
-
-sample_data = ActinImgCollection(root_path=data_path)
+    sample_data = ActinImgCollection(root_path=data_path)
 
 """ TODO: 
     - add checks to make sure everything is parametrised 
@@ -287,17 +289,3 @@ sample_data = ActinImgCollection(root_path=data_path)
     - make pipeline customisable 
     - document each function
     """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
