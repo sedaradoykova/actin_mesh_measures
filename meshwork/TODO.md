@@ -26,26 +26,25 @@
 - [X] use spreadsheet to choose focal plane for **min z proj** 
 - [ ] adapt morphological operations to suit the data (lol)
 
-- [ ] make a new class which can help perform the analysis 
-    - guide parametrisation and enable automatic html generation
-    - could be integrated as a command line interface too  
-- [ ] 
+- [x] make a new class which can help perform the analysis 
+    - [ ] guide parametrisation and enable automatic html generation
+    - [ ] could be integrated as a command line interface too   
 
 ----
 
 ## Thresholding steps 
 
-- [ ] Is thresholding introducing an artifact? 
+- [X] Is thresholding introducing an artifact? 
     - try running the code on one example cell (until the thresholding) **without applying the steerable filter** 
     - compare == wither steerable filter is introducing too much “artifact” to the image analysis 
 
-- [ ] What is an appropriate value? 
+- [x] What is an appropriate value? 
     - automatically set ~ image 
     - calculate mean + std of the background signal (ie where there are no cells) 
     - threshold = mean +1.5 (or 2.5x) std
     - [ ] test for one image, calculate mean and std without cell by masking out cell 
     - the value might be similar across cells 
-
+    - [X] done with threshold set to mean BUT NO SD 
 
 ---- 
 
