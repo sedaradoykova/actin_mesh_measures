@@ -191,7 +191,9 @@ class ActinImgCollection:
         actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=self.__main_dest)
 
         basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic']].values[0]
-
+        # use mean background intensity (extracted from image background in imagej)
+        # basal_stack, cyto_stack, thresh = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic', 'Notes']].values[0]
+        # thresholdd = (float(thresh) - np.min(actin_img_instance.image_stack))/(np.max(actin_img_instance.image_stack)-np.min(actin_img_instance.image_stack))
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             # !!!!! INTEGRATE PIPELINE HERE 
             """ Analysis:
@@ -204,14 +206,15 @@ class ActinImgCollection:
             actin_img_instance.nuke()
             actin_img_instance.normalise()
 
-            actin_img_instance.steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
-            #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
-            actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
+            #actin_img_instance.steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
+            #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir) ## using image background mean 
+            #actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
             actin_img_instance.z_project_min()
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
             actin_img_instance.threshold(self.parameters['threshold'])
+            #actin_img_instance.threshold(thresholdd)
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
 
@@ -248,39 +251,47 @@ class ActinImgCollection:
             for i in range(len(curr_filenames)):
                 f.write(f'# {curr_filenames[i]}')
                 f.write('\n\n')
-                f.write(f'![](main/{all_output_types["original"][i]})'+'{ width=700px } ')
+                if len(all_output_types['original']) > 0:
+                    f.write(f'![](main/{all_output_types["original"][i]})'+'{ width=700px } ')
                 f.write('\n\n')
                 f.write('**Maximum z-projection**  ')
                 f.write('\n')
-                f.write(f'![](main/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['max_proj']) > 0:
+                    f.write(f'![](main/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
                 f.write('\n\n')
                 f.write('## Basal network  ')
                 f.write('\n\n')
                 f.write('**Steerable second order Gaussian filter**  ')
                 f.write('\n')
-                f.write(f'![](basal/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['steer_gauss']) > 0:
+                    f.write(f'![](basal/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
                 f.write('\n')
                 f.write('**Minimum z-projection**  ')
                 f.write('\n')
-                f.write(f'![](basal/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['min_proj']) > 0:
+                    f.write(f'![](basal/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
                 f.write('\n')
                 f.write('**Binary thresholding**  ')
                 f.write('\n')
-                f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['threshold']) > 0:
+                    f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
                 f.write('\n\n')
                 f.write('## Cytosolic network  ')
                 f.write('\n\n')
                 f.write('**Steerable second order Gaussian filter**  ')
                 f.write('\n')
-                f.write(f'![](cytosolic/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['steer_gauss']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
                 f.write('\n')
                 f.write('**Minimum z-projection**  ')
                 f.write('\n')
-                f.write(f'![](cytosolic/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['min_proj']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
                 f.write('\n')
                 f.write('**Binary thresholding**  ')
                 f.write('\n')
-                f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                if len(all_output_types['threshold']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
                 f.write('\n\n\n')
             
 
