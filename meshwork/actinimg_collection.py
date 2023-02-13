@@ -1,4 +1,4 @@
-import os, time
+import os, time, subprocess, shutil, warnings
 import numpy as np 
 import pandas as pd
 from dataclasses import dataclass
@@ -6,6 +6,12 @@ from tqdm import tqdm
 from actin_meshwork_analysis.meshwork.actinimg import get_ActinImg
 from actin_meshwork_analysis.meshwork.utils import list_files_dir_str, search_files_root
 
+""" TODO: 
+    - add checks to make sure everything is parametrised 
+    - run to see if it works with sample_data
+    - make pipeline customisable 
+    - document each function
+"""
 
 @dataclass()
 class ActinImgCollection:
@@ -23,18 +29,30 @@ class ActinImgCollection:
             raise TypeError('Root path must be a string.')
         if not os.path.exists(self.root_path):
             raise ValueError(f'Path not found: {self.root_path}.')
-        # if not isinstance(self.res_path, str):
-        #     raise TypeError('Results path must be a string.')
-        # if not os.path.exists(self.res_path):
-        #     raise ValueError(f'Results path not found: {self.root_path}.')
+        if self.res_path is not None and not isinstance(self.res_path, str):
+            raise TypeError('Results path must be a string.')
+        if self.res_path is not None and not os.path.exists(self.res_path):
+            raise ValueError(f'Results path not found: {self.root_path}.')
         # read in data and extract file names/paths.
         self._all_filenames, self._all_filepaths = list_files_dir_str(self.root_path)
         self._filenames_to_del = None
 
 
 
-    def print_summary(self, specify_subdirs=None):
+    def print_summary(self, specify_subdirs=None, interact=False):
         """ Summary of files. """
+        if not isinstance(interact, bool): 
+            raise TypeError('interact must be a boolean.')
+
+        if interact: 
+            inp = input(f'Subdirs not specified. Print summary for all subdirs in {os.path.basename(self.root_path)}? [y/n]\n')
+            if inp.lower() == 'n':
+                raise InterruptedError('')
+            elif inp.lower() == 'y':
+                pass
+            else: 
+                raise ValueError('Invalid input, rerun command.')
+
         if specify_subdirs:
             if not isinstance(specify_subdirs, list): 
                 raise TypeError('subdirs must be a list.')
@@ -48,6 +66,7 @@ class ActinImgCollection:
                 elif specify_subdirs is None:
                     print(key, " "*(50-len(key)), ":", cat, " :", len([val for val in vals if cat in val]))
         print("")
+
         total_len = []
         for key, vals in self._all_filenames.items():
             if specify_subdirs is not None and any(key == str(keys) for keys in specify_subdirs):
@@ -141,10 +160,25 @@ class ActinImgCollection:
         # which intermediate results to save 
         raise NotImplementedError
 
-    def parametrise_pipeline(self):
-        # fill in parameters based on function calls in pipeline
+    def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=0.002):
+        """ Fill in parameters based on function calls in pipeline. 
+
+        Arguments
+        ---------
+        substack : list of ints
+        theta : float
+        thetas : list of floats
+        sigma : float
+        threshold : float
+
+        Returns 
+        -------
+        dict : ????
+        """
         self.parameters = dict.fromkeys(['substack', 'theta', 'thetas', 'sigma', 'threshold'])
-        raise NotImplementedError
+        for key, value in zip(self.parameters.keys(), [substack, theta, thetas, sigma, threshold]):
+            self.parameters[key] = value
+
 
 
     def analysis_pipeline(self, filename, filepath, print_summary=False):
@@ -169,14 +203,14 @@ class ActinImgCollection:
             actin_img_instance.nuke()
             actin_img_instance.normalise()
 
-            actin_img_instance.steerable_gauss_2order_thetas(thetas=np.arange(0,360,60),sigma=2,substack=stack,visualise=False)
+            actin_img_instance.steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
             #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
             actin_img_instance.z_project_min()
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
-            actin_img_instance.threshold(0.002)
+            actin_img_instance.threshold(self.parameters['threshold'])
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
 
         if print_summary:
@@ -207,9 +241,9 @@ class ActinImgCollection:
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
 
-
-        with open(os.path.join(self.__save_destdir,(subdir[0:10]+'.md')), 'w') as f:
-            base_dir = os.path.basename(self.__save_destdir)
+        md_filename = subdir[0:10]+'.md'
+        results_base_dir = os.path.basename(self.__save_destdir)
+        with open(os.path.join(self.__save_destdir,md_filename), 'w') as f:
             for i in range(len(curr_filenames)):
                 f.write(f'# {curr_filenames[i]}')
                 f.write('\n\n')
@@ -247,10 +281,20 @@ class ActinImgCollection:
                 f.write('\n')
                 f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
                 f.write('\n\n\n')
+            
+
+        pandoc_input = os.path.join(self.root_path, results_base_dir, md_filename)
+        if shutil.which('pandoc') is None:
+            warnings.warn(f'Pandoc is not installed. Returning only {pandoc_input.replace(".md", ".html")}.')
+        else: 
+            subprocess.run(f'pandoc -t slidy -s {pandoc_input} -o {pandoc_input.replace(".md", ".html")}', shell=True)
 
 
     def run_analysis(self, visualise_as_html=False):
         """ Runs analysis on selected subdirs. """
+        if self.parameters is None: 
+            raise AttributeError('self.parameters has not been initialised; call self.parametrise_pipeline().')
+
         t_start = time.time()
         for subdir in tqdm(self.only_subdirs, desc='cell types'):
 
@@ -266,7 +310,10 @@ class ActinImgCollection:
         delta_t = time.time() - t_start
         print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
         
-                    
+    def next(self):
+        n=0
+        raise NotImplementedError
+
 
 
 
@@ -284,9 +331,27 @@ if __name__ == '__main__':
 
     sample_data = ActinImgCollection(root_path=data_path)
 
-""" TODO: 
-    - add checks to make sure everything is parametrised 
-    - run to see if it works with sample_data
-    - make pipeline customisable 
-    - document each function
-    """
+"""
+get_ActinImg(filename, filepath)
+visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
+z_project_max()
+visualise_stack(imtype='manipulated',save=True,dest_dir=self.__main_dest)
+
+nuke()
+normalise()
+
+steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
+#_visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
+isualise_stack(imtype='manipulated',save=True,dest_dir=dest)
+
+z_project_min()
+visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
+
+threshold(self.params['threshold'])
+visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
+
+r = {'initialise': {'vis': True, 'params': ["imtype='original',save=True,dest_dir=self.__main_dest"]}}
+r['initialise']['vis']
+{'z_proj_max', {'vis': True,}}
+steerable_gauss_thetas, vis=True
+"""
