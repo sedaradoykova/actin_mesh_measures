@@ -1,4 +1,4 @@
-import os, time, subprocess, shutil, warnings
+import os, yaml, time, subprocess, shutil, warnings
 import numpy as np 
 import pandas as pd
 from dataclasses import dataclass
@@ -43,6 +43,8 @@ class ActinImgCollection:
         """ Summary of files. """
         if not isinstance(interact, bool): 
             raise TypeError('interact must be a boolean.')
+        
+        self._all_filenames, self._all_filepaths = list_files_dir_str(self.root_path)
 
         if interact: 
             inp = input(f'Subdirs not specified. Print summary for all subdirs in {os.path.basename(self.root_path)}? [y/n]\n')
@@ -181,7 +183,7 @@ class ActinImgCollection:
 
 
 
-    def analysis_pipeline(self, filename, filepath, print_summary=False):
+    def analysis_pipeline(self, filename, filepath):
         """ ??? """
         actin_img_instance = get_ActinImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
@@ -192,7 +194,6 @@ class ActinImgCollection:
 
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             # !!!!! INTEGRATE PIPELINE HERE 
-            # fix parametrisation!!!! 
             """ Analysis:
                     max z proj on raw data
                     nuke
@@ -212,9 +213,6 @@ class ActinImgCollection:
 
             actin_img_instance.threshold(self.parameters['threshold'])
             actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-        if print_summary:
-            self.print_summary([os.path.basename(self.__save_destdir)]) 
 
 
     def visualise_html(self, subdir):
@@ -244,6 +242,9 @@ class ActinImgCollection:
         md_filename = subdir[0:10]+'.md'
         results_base_dir = os.path.basename(self.__save_destdir)
         with open(os.path.join(self.__save_destdir,md_filename), 'w') as f:
+            f.write('---\n')
+            f.write(f'title: {subdir} basal and cytosolic meshwork results.')
+            f.write('\n---\n\n\n')
             for i in range(len(curr_filenames)):
                 f.write(f'# {curr_filenames[i]}')
                 f.write('\n\n')
@@ -290,7 +291,13 @@ class ActinImgCollection:
             subprocess.run(f'pandoc -t slidy -s {pandoc_input} -o {pandoc_input.replace(".md", ".html")}', shell=True)
 
 
-    def run_analysis(self, visualise_as_html=False):
+    def return_params(self):
+        analysis_parameters = {'root_directory': self.root_path, 'parameters': self.parameters}
+        with open(f'{os.path.join(self.root_path, os.path.basename(self.root_path))}.yml', 'w') as f:
+            yaml.dump(analysis_parameters, f, default_flow_style=False)
+
+
+    def run_analysis(self, visualise_as_html=False, return_parameters=False):
         """ Runs analysis on selected subdirs. """
         if self.parameters is None: 
             raise AttributeError('self.parameters has not been initialised; call self.parametrise_pipeline().')
@@ -302,13 +309,18 @@ class ActinImgCollection:
             self.initialise_res_dir(subdir=subdir)
 
             for name in tqdm(curr_filenames, desc='files'):
-                self.analysis_pipeline(filename=name,filepath=curr_filepath, print_summary=True)
+                self.analysis_pipeline(filename=name,filepath=curr_filepath)
         
             if visualise_as_html:
                 self.visualise_html(subdir=subdir)
 
         delta_t = time.time() - t_start
         print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
+
+        if return_parameters:
+            self.return_params()
+
+
         
     def next(self):
         n=0
