@@ -52,3 +52,13 @@ There is a handful of pdfs in the ./reading dir.
 - [Learning Steerable Filters for Rotation Equivariant CNNs](https://openaccess.thecvf.com/content_cvpr_2018/papers/Weiler_Learning_Steerable_Filters_CVPR_2018_paper.pdf)
 
 
+
+### Chapters 
+
+- [Chapter 5 - Microaneurysms Detection for Early Diagnosis of Diabetic Retinopathy Using Shape and Steerable Gaussian Features](https://www.sciencedirect.com/science/article/pii/B9780128169483000052)
+- [Chapter 4 - Design of Integrated Road Perception and Lane Detection System for Driver Intention Inference](https://www.sciencedirect.com/science/article/pii/B978012819113200004X)
+- [Quantitative Analysis of Nuclear Lamins Imaged by Super-Resolution Light Microscopy](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6524165/)
+    - > The steerableDetector function was applied to reconstructed SIM images and a rastered STORM image with a fourth order filter. The Euclidean minimum spanning tree, Delaunay triangulation, and Voronoi tessellation of SMLM STORM data were computed using the Computational Geometry functions and the Bioinformatics Toolbox of MATLAB after loading the molecule list from Nikon Elements. T
+- [Texture classification filters (group, Oxford)](https://www.robots.ox.ac.uk/~vgg/research/texclass/filters.html)
+
+
