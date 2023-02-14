@@ -1,4 +1,4 @@
-import os, cv2
+import os, cv2, warnings
 import numpy as np 
 import matplotlib.pyplot as plt
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -241,12 +241,13 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            #print('Raw data has not been normalised; using raw data.') #raise ValueError
+            #warnings.warn('Raw data has not been normalised; using raw data.') #raise ValueError
         else: 
             use_raw = False
         if substack and (len(substack) > 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
-        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+        compare_depth = self.manipulated_depth if self.manipulated_depth > 0 else self.depth
+        if substack and len(substack)==2 and (substack[0] < 1 or substack[1] > compare_depth):
             raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
         if substack and len(substack)==1:
             print('Cannot perform minimum projection on one frame, returning object.')
@@ -283,23 +284,31 @@ class ActinImg:
         """
         if not self._history or 'normalise' not in self._history: 
             use_raw = True
-            #print('Raw data has not been normalised; using raw data.') #raise ValueError
+            #warnings.warn('Raw data has not been normalised; using raw data.') #raise ValueError
         else: 
             use_raw = False
-        if substack and (len(substack) != 2 or not isinstance(substack, list)): 
+        if substack and (len(substack) > 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length=2, specifying a range.')
-        if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
+        compare_depth = self.manipulated_depth if self.manipulated_depth > 0 else self.depth
+        if substack and len(substack)==2 and (substack[0] < 1 or substack[1] > compare_depth):
             raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
+
         if substack and use_raw:
-            data = self.image_stack[substack[0]-1:substack[1]].copy() 
-        elif use_raw:
+            if len(substack)==2:
+                data = self.image_stack[substack[0]-1:substack[1]].copy() 
+            elif len(substack)==1:
+                data = self.image_stack[substack].copy() 
+        elif use_raw and not substack:
             data = self.image_stack.copy() 
-        elif substack: 
-            data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
+        elif substack and not use_raw: 
+            if len(substack)==2:
+                data = self.manipulated_stack[substack[0]-1:substack[1]].copy() 
+            elif len(substack)==1:
+                data = self.manipulated_stack[substack].copy() 
         else:
             data = self.manipulated_stack.copy()
 
-        self.manipulated_stack = np.max(data,0)
+        self.manipulated_stack = np.max(data,0) if len(data.shape)==3 else data
         self.manipulated_depth = 1
         self._projected = True
         self._call_hist('z_project_max')
