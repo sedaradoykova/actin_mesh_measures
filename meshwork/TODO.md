@@ -43,6 +43,7 @@
     - calculate mean + std of the background signal (ie where there are no cells) 
     - threshold = mean +1.5 (or 2.5x) std
     - [ ] test for one image, calculate mean and std without cell by masking out cell 
+        - NaNs --> take mean of mask (normalise-->min_z-->threshold)
     - the value might be similar across cells 
     - [X] done with threshold set to mean BUT NO SD 
 
@@ -56,4 +57,44 @@
 - [X] take filter in six orientations and average of outputs 
 - [X] output of cv2 and scipy is consistent for normalised data - the averages match
     - but it is not consistent with the intermediates of the matlab code (see _scratch_gaussian_debugging.py)
-    
+- [ ] confirm that theta value is not the problem --> compare matlab to python theta conversion 
+- [ ] test with theta=0 
+    - check mins and max of images 
+- [ ] look at steerableJ source code 
+- [ ] are six orientations too many?? .... 
+
+----
+
+### 13/03 meeting outline
+
+- **steerable gaussian filter** 
+    - i finally understood what the filter is and what it does 
+        - visualise intermediates, write tests to check they are consistent 
+    - tests to compare matlab and python output (ppt and gaussian_debugging / test_*)
+    - cv2 and scipy report consistent results for normalised data 
+        - have not tested for raw but there seems to be no point in doing so
+- **full pipeline implemented to be automated as a separate class which can process all files in a root_dir**
+    - show summary, interactive aspects, parametrisation 
+        - pipeline customisation lacks 
+    - show results for untransduced, car with focal planes (full analysis)
+    - show sample for: 
+        - typical pipeline
+        - threshold = mean background 
+        - typical without steerable gaussian filter 
+- **binary threshold** 
+    - interactive slider for threshold fine-tuning 
+        - exposes that at very low thresholds noise creates a mesh-like structure 
+    - is thresholding producing artifacts? 
+        - performed analysis without 
+
+
+- check number of cars (relative)
+- check with three thetas 
+- forget comparison to matlab 
+- focus on thresholding dynamically 
+- get meshwork size/density 
+- take 3 images 
+- check miruna's paper before trying something in python 
+    - note: the plugin does more things than we need 
+- upload and email all images/prelim results
+- fix max projection to be basal and cytosolic planes respectively 
