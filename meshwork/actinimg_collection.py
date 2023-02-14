@@ -22,6 +22,21 @@ class ActinImgCollection:
     focal_planes: pd.DataFrame=None
     analysis_steps=None
     parameters=None
+    pipeline_outline = {# loop through these if needed 
+            '01': {'func': 'normalise', 'params': None, 
+                'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '02': {'func': 'steerable_gauss_2order_thetas', 
+                'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
+                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '03': {'func': 'z_project_min', 'params': None, 
+                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '04': {'func': 'threshold', 'params': "self.parameters['threshold']", 
+                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '05': {'func': 'nuke', 'params': None, 'vis_stack': False},
+            '06': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']", 
+                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '07': {'func': 'nuke', 'params': None,  'vis_stack': False}
+            }
 
 
     def __post_init__(self):
@@ -157,14 +172,18 @@ class ActinImgCollection:
         if not os.path.exists(self.__main_dest):
             os.mkdir(self.__main_dest)
 
-    def define_pipeline(self):
+
+
+    def redefine_pipeline(self, new_pipeline):
         # which functions to call 
-        # which intermediate results to save 
-        raise NotImplementedError
+        # which intermediate results to save
+        if not isinstance(new_pipeline, dict):
+            raise TypeError('New pipeline must be specified as a dictionary.')
+        self.pipeline_outline = new_pipeline
 
-    def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=0.002):
+
+    def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=0.002, dest_dir=None):
         """ Fill in parameters based on function calls in pipeline. 
-
         Arguments
         ---------
         substack : list of ints
@@ -172,14 +191,35 @@ class ActinImgCollection:
         thetas : list of floats
         sigma : float
         threshold : float
-
         Returns 
         -------
         dict : ????
         """
-        self.parameters = dict.fromkeys(['substack', 'theta', 'thetas', 'sigma', 'threshold'])
-        for key, value in zip(self.parameters.keys(), [substack, theta, thetas, sigma, threshold]):
+        self.parameters = dict.fromkeys(['substack', 'theta', 'thetas', 'sigma', 'threshold', 'dest_dir'])
+        for key, value in zip(self.parameters.keys(), [substack, theta, thetas, sigma, threshold, dest_dir]):
             self.parameters[key] = value
+
+
+    def pipeline_construct(self, actin_img_instance, func):
+        func_spcify = self.pipeline_outline[func]
+        failed_funcs, failed_vis = [], []
+    
+        # try:
+        #     eval(f"actin_img_instance.{func}({func_spcify['params']})")
+        # except:
+        #     failed_funcs.append(func)
+
+        # if func_spcify['vis_stack']:
+        #     try: 
+        #         eval(f"actin_img_instance.visualise_stack({func_spcify['vis_params']})")    
+        #     except:
+        #         failed_vis.append(actin_img_instance.title)
+        if func_spcify['params'] is not None: 
+            eval(f"actin_img_instance.{func_spcify['func']}({func_spcify['params']})")
+        else: 
+            eval(f"actin_img_instance.{func_spcify['func']}()")
+        if func_spcify['vis_stack']:
+            eval(f"actin_img_instance.visualise_stack({func_spcify['vis_params']})")    
 
 
 
@@ -187,35 +227,17 @@ class ActinImgCollection:
         """ ??? """
         actin_img_instance = get_ActinImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
-        actin_img_instance.z_project_max()
-        actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=self.__main_dest)
 
         basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic']].values[0]
-        # use mean background intensity (extracted from image background in imagej)
-        # basal_stack, cyto_stack, thresh = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic', 'Notes']].values[0]
-        # thresholdd = (float(thresh) - np.min(actin_img_instance.image_stack))/(np.max(actin_img_instance.image_stack)-np.min(actin_img_instance.image_stack))
+        ### use mean background intensity (extracted from image background in imagej)
+        # basal_stack, cyto_stack, background = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic', 'Background']].values[0]
+        # threshold = (float(background) - np.min(actin_img_instance.image_stack))/(np.max(actin_img_instance.image_stack)-np.min(actin_img_instance.image_stack))
+        # self.parameters['threshold'] = threshold
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
-            # !!!!! INTEGRATE PIPELINE HERE 
-            """ Analysis:
-                    max z proj on raw data
-                    nuke
-                    basal: normalise --> steer 2o Gauss --> min z proj --> threshold
-                    nuke 
-                    cytosolic: normalise --> steer 2o Gauss --> min z proj --> threshold 
-            """
-            actin_img_instance.nuke()
-            actin_img_instance.normalise()
-
-            #actin_img_instance.steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
-            #actimg._visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir) ## using image background mean 
-            #actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-            actin_img_instance.z_project_min()
-            actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-            actin_img_instance.threshold(self.parameters['threshold'])
-            #actin_img_instance.threshold(thresholdd)
-            actin_img_instance.visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
+            self.parameters['substack'] = stack
+            self.parameters['dest_dir'] = dest
+            for step in list(self.pipeline_outline.keys()):
+                self.pipeline_construct(actin_img_instance, step)
 
 
     def visualise_html(self, subdir):
@@ -229,15 +251,15 @@ class ActinImgCollection:
 
         all_output_types = dict.fromkeys(['original', 'max_proj', 'steer_gauss', 'min_proj', 'threshold'])
 
-        out_types = ['original', 'max_proj']
-        type_file_ends = ['original', 'max']
+        out_types = ['original']
+        type_file_ends = ['original']
         results_filenames = [res for res in os.listdir(self.__save_destdir+'/main') if 'png' in res]
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
 
 
-        out_types = ['steer_gauss', 'min_proj', 'threshold']
-        type_file_ends = ['300+6.png', 'min.png', 'threshold.png']
+        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold']
+        type_file_ends = ['max', '300+6.png', 'min.png', 'threshold.png']
         results_filenames = [res for res in os.listdir(self.__save_destdir+'/basal') if 'png' in res]
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
@@ -254,13 +276,13 @@ class ActinImgCollection:
                 if len(all_output_types['original']) > 0:
                     f.write(f'![](main/{all_output_types["original"][i]})'+'{ width=700px } ')
                 f.write('\n\n')
+                f.write('## Basal network  ')
+                f.write('\n\n')
                 f.write('**Maximum z-projection**  ')
                 f.write('\n')
                 if len(all_output_types['max_proj']) > 0:
-                    f.write(f'![](main/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
-                f.write('\n\n')
-                f.write('## Basal network  ')
-                f.write('\n\n')
+                    f.write(f'![](basal/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
+                f.write('\n')
                 f.write('**Steerable second order Gaussian filter**  ')
                 f.write('\n')
                 if len(all_output_types['steer_gauss']) > 0:
@@ -278,6 +300,11 @@ class ActinImgCollection:
                 f.write('\n\n')
                 f.write('## Cytosolic network  ')
                 f.write('\n\n')
+                f.write('**Maximum z-projection**  ')
+                f.write('\n')
+                if len(all_output_types['max_proj']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
+                f.write('\n')
                 f.write('**Steerable second order Gaussian filter**  ')
                 f.write('\n')
                 if len(all_output_types['steer_gauss']) > 0:
@@ -338,43 +365,3 @@ class ActinImgCollection:
         raise NotImplementedError
 
 
-
-
-
-if __name__ == '__main__':
-    data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data")
-    #data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data")
-
-
-    only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_imageJ']
-    focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_v2.csv')
-
-    theta_x6 = np.arange(0,360,60)
-
-
-    sample_data = ActinImgCollection(root_path=data_path)
-
-"""
-get_ActinImg(filename, filepath)
-visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
-z_project_max()
-visualise_stack(imtype='manipulated',save=True,dest_dir=self.__main_dest)
-
-nuke()
-normalise()
-
-steerable_gauss_2order_thetas(thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=stack,visualise=False)
-#_visualise_oriented_filters(thetas=theta_x6,sigma=2,save=True,dest_dir=save_destdir)
-isualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-z_project_min()
-visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-threshold(self.params['threshold'])
-visualise_stack(imtype='manipulated',save=True,dest_dir=dest)
-
-r = {'initialise': {'vis': True, 'params': ["imtype='original',save=True,dest_dir=self.__main_dest"]}}
-r['initialise']['vis']
-{'z_proj_max', {'vis': True,}}
-steerable_gauss_thetas, vis=True
-"""
