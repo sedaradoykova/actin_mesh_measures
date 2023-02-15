@@ -6,5 +6,6 @@ deconvolution_beads/beads_detected
 meshwork/steerable_gaussian/matlab_files
 meshwork/steerable_gaussian/reading
 meshwork/steerable_gaussian/test*
+meshwork/steerable_gaussian/steerable-master
 process_data/deconv_data
 process_data/sample_data
