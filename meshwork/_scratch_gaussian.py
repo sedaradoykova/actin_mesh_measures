@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 non max supp used by steerablej source (cpp source is a pain to read)
 they implement custom non max supp 
 my ideas seem to suck
+could it be better to simply take max along axis 0 to get strongest response out of all theta responses
 """
 
 
@@ -24,6 +25,27 @@ actimg.visualise_stack('manipulated')
 actimg.nuke()
 actimg.normalise()
 ims = actimg.steerable_gauss_2order(theta=0,sigma=2,substack=[3,5],visualise=True,tmp=True)
+
+all_responses = ims['response'].copy()
+max_resp = np.max(np.array(all_responses), 0)
+mean_resp = np.mean(np.array(all_responses), 0)
+diff = mean_resp - max_resp
+max_resp = max_resp > 0.002
+mean_resp = mean_resp > 0.002
+plt.subplot(1,3,1)
+plt.imshow(max_resp,cmap='gray')
+plt.title('max')
+plt.axis('off')
+plt.subplot(1,3,2)
+plt.imshow(mean_resp, cmap='gray')
+plt.title('mean')
+plt.axis('off')
+plt.subplot(1,3,3)
+plt.imshow(diff, cmap='gray')
+plt.title('diff')
+plt.axis('off')
+plt.show()
+
 
 from scipy import ndimage
 all_frames = ims['response'].copy()
