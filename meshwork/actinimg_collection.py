@@ -259,7 +259,7 @@ class ActinImgCollection:
 
 
         out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold']
-        type_file_ends = ['max', '300+6.png', 'min.png', 'threshold.png']
+        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png']
         results_filenames = [res for res in os.listdir(self.__save_destdir+'/basal') if 'png' in res]
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
