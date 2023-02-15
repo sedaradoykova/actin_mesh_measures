@@ -345,7 +345,7 @@ class ActinImg:
         sigma : float=2.0
             The standard deviation of the Gaussian.
         theta : float=0.
-            The steerable filter orientation. 
+            The steerable filter orientation, in degrees. 
         tmp : bool=False
             Optional argument enables returning the response and the oriented filter without updating original object. 
 
@@ -374,7 +374,8 @@ class ActinImg:
 
         #### Separable filter kernels
         # Gaussian kernel mesh grid  
-        Wx = np.floor((8/2)*sigma)
+        #Wx = np.floor((8/2)*sigma)
+        Wx = np.floor((8/2)*sigma*2)
         Wx = Wx if Wx >= 1 else 1
 
         x = np.arange(-Wx,Wx+1) # determines kernel size 
@@ -453,7 +454,7 @@ class ActinImg:
         Arguments
         ---------
         thetas : list
-            A list of floats or integers, specifying the directions in which the Gaussian should be steered.
+            A list of floats or integers, specifying the directions (in degrees) in which the Gaussian should be steered.
         sigma : float=2.0
             The standard deviation of the Gaussian.
         substack : list
@@ -471,7 +472,7 @@ class ActinImg:
 
         if visualise:
             titles = [f'n_{str(n)}' for n in np.arange(substack[0],substack[1]+1)]
-            figrows, figcols = get_fig_dims(len(thetas))
+            figrows, figcols = get_fig_dims(len(titles))
             for n, (image, title) in enumerate(zip(np.rollaxis(response_stack, 0), titles)):
                 ax = plt.subplot(figrows,figcols,n+1)
                 ax.imshow(image, cmap='gray')
@@ -489,7 +490,7 @@ class ActinImg:
             self.manipulated_depth = substack[1]-substack[0]+1
         self.manipulated_substack_inds = substack
         theta_string = f'+{thetas[0]}+{thetas[-1]}+{len(thetas)}'
-        self._call_hist('steerable_gauss_2order_thetas'+theta_string)
+        self._call_hist('steerable_gauss_2order_thetas')#+theta_string)
         return None 
 
     def _get_oriented_filter(self, theta, sigma):
@@ -498,7 +499,8 @@ class ActinImg:
         """
         #### Separable filter kernels
         # Gaussian kernel mesh grid  
-        Wx = np.floor((8/2)*sigma)
+        #Wx = np.floor((8/2)*sigma)
+        Wx = np.floor((8/2)*sigma*2)
         Wx = Wx if Wx >= 1 else 1
         x = np.arange(-Wx,Wx+1) # determines kernel size 
         xx,yy = np.meshgrid(x,x)

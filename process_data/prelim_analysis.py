@@ -48,7 +48,7 @@ if __name__ == '__main__':
 # CARs_8.11.22_processed_imageJ                       : 8min  : 17
 # Untransduced_1.11.22_processed_imageJ               : 8min  : 5
 
-# CARs_8.11.22_processed_imageJ                       : total : 53
+# CARs_8.11.22_processed_imageJ                       : total : 53 --> 49 after processing
 # Untransduced_1.11.22_processed_imageJ               : total : 22
 
 # Total files                                         : 75
