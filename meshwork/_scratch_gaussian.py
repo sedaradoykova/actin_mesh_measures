@@ -1,3 +1,123 @@
+from actin_meshwork_analysis.meshwork.actinimg import get_ActinImg
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+""" Bottom line: do we use non-maximum suppression to thin edges or do we not....
+non max supp used by steerablej source (cpp source is a pain to read)
+they implement custom non max supp 
+my ideas seem to suck
+"""
+
+
+actimg = get_ActinImg('3min_FOV3_decon.tif', 'actin_meshwork_analysis/process_data/sample_data/CARs')
+actimg._visualise_oriented_filters(np.arange(0,360,15),2)
+
+actimg.nuke()
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas((0,90),2,[3,5],False)
+actimg.z_project_min()
+actimg.threshold(0.002)
+actimg.visualise_stack('manipulated')
+
+
+actimg.nuke()
+actimg.normalise()
+ims = actimg.steerable_gauss_2order(theta=0,sigma=2,substack=[3,5],visualise=True,tmp=True)
+
+from scipy import ndimage
+all_frames = ims['response'].copy()
+image = all_frames[0]
+# Use the max filter to make a mask
+roi = 1
+size = 2 * roi + 1
+image_max = ndimage.maximum_filter(image, size=size, mode='nearest')
+plt.imshow(image_max); plt.show();
+mask = (image == image_max)
+image *= mask
+plt.imshow(image); plt.show(); 
+
+
+actimg.nuke()
+actimg.normalise()
+ims = actimg.steerable_gauss_2order(theta=60,sigma=2,substack=[3,5],visualise=True,tmp=True)
+
+all_frames2 = ims['response'].copy()
+image2 = all_frames2[0]
+# Use the max filter to make a mask
+roi = 1
+size = 2 * roi + 1
+image_max2 = ndimage.maximum_filter(image2, size=size, mode='nearest')
+plt.imshow(image_max2); plt.show();
+mask2 = (image2 == image_max2)
+image2 *= mask2
+plt.imshow(image2); plt.show(); 
+
+plt.subplot(1,2,1)
+plt.imshow(image_max, cmap='gray')
+plt.subplot(1,2,2)
+plt.imshow(image_max2, cmap='gray')
+plt.show()
+
+max_out = np.max(np.array([image_max,image_max2]),0)
+plt.subplot(1,3,1)
+plt.imshow(image_max, cmap='gray')
+plt.title('theta=0')
+plt.axis('off')
+plt.subplot(1,3,2)
+plt.imshow(image_max2, cmap='gray')
+plt.title('theta=60')
+plt.axis('off')
+plt.subplot(1,3,3)
+plt.imshow(max_out, cmap='gray')
+plt.title('max of two')
+plt.axis('off')
+plt.show()
+
+
+
+# Optionally find peaks above some threshold
+peak_threshold = 0.02
+image_t = (image > peak_threshold) * 1
+plt.imshow(image_t); plt.show(); 
+# get coordniates of peaks
+f = np.transpose(image_t.nonzero())
+
+
+
+
+actimg.nuke()
+actimg.normalise()
+
+thetas=np.arange(15,360,120)
+results = dict.fromkeys(thetas)
+for angle in thetas:
+    results[angle] = actimg.steerable_gauss_2order(theta=angle, substack=[3,5],sigma=2,visualise=False,tmp=True)
+response_stack = np.array([value['response'] for key, value in results.items()])
+
+out=[]
+for img in np.rollaxis(response_stack,0):
+    image = img[0]
+    # Use the max filter to make a mask
+    roi = 1
+    size = 2 * roi + 1
+    image_max = ndimage.maximum_filter(image, size=size, mode='nearest')
+    out.append(image_max)
+    plt.imshow(image_max); plt.show();
+    mask = (image == image_max)
+    image *= mask
+    plt.imshow(image); plt.show(); 
+
+maxim = np.max(np.array(out),0)
+plt.imshow(maxim);plt.show();
+plt.imshow(maxim > 0.005);plt.show();
+
+
+
+
+
+
+
 import numpy as np
 import matplotlib.pyplot as plt 
 from tifffile import imread
