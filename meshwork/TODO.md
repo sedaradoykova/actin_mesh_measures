@@ -6,7 +6,8 @@
 
 - [X] What is the **cytosolic** actin network? Is it 0-1 $\mu$ m? 
     - cytosolic and basal network 
-    > we defined it individually for each cell 
+    - > we defined it individually for each cell 
+    - [pseudocolor cv](https://plantcv.readthedocs.io/en/stable/visualize_pseudocolor/)
 - [ ] Use the new deconvolved images to finish actin meshwork analysis.
     - [ ] get mesh size
     - [X] start with untransduced cells; then CARs
@@ -24,10 +25,10 @@
 - [X] **Normalise** --> **steer 2o Gauss** --> **min z proj** --> **threshold** 
     - do for all deconvolved images of interest 
 - [X] use spreadsheet to choose focal plane for **min z proj** 
-- [ ] adapt morphological operations to suit the data (lol)
+- [ ] adapt morphological operations to the data (lol)
 
 - [x] make a new class which can help perform the analysis 
-    - [ ] guide parametrisation and enable automatic html generation
+    - [X] guide parametrisation and enable automatic html generation
     - [ ] could be integrated as a command line interface too   
 
 ----
@@ -51,17 +52,30 @@
 
 ## Steerable filter matters 
 
-- correlation is what i thought covolution was (going top-bottom and left-right)
+- correlation is what i thought convolution was (going top-bottom and left-right)
 - [ ] make intermediate Gaussian figures to be used in write up
-- [ ] write up bits of the methods section 
+- [ ] write up bits of the methods section ... [not urgent]
 - [X] take filter in six orientations and average of outputs 
 - [X] output of cv2 and scipy is consistent for normalised data - the averages match
     - but it is not consistent with the intermediates of the matlab code (see _scratch_gaussian_debugging.py)
-- [ ] confirm that theta value is not the problem --> compare matlab to python theta conversion 
-- [ ] test with theta=0 
-    - check mins and max of images 
-- [ ] look at steerableJ source code 
-- [ ] are six orientations too many?? .... 
+- [X] confirm that theta value is not the problem --> compare matlab to python theta conversion 
+    - V: theta conversion is identical 
+- [X] test with theta=0 (and theta=30) 
+    - check mins and max of images:
+    - V: the image histograms are very very similar for theta=0 and 30 
+    - V: min, max, mean = match; fraction > 0 is close but not identical.... 
+- [X] look at steerableJ source code  
+- [ ] steerable filter post-processing: 
+    - [Jacob and Canny (2004)](https://ieeexplore.ieee.org/document/1307008) use non-maximum suppression as a post-processing step. it is a procedure which thins edges 
+        - non max supp used by steerablej source (cpp source is a pain to read, took an entire day)
+        - they implement custom non max supp, i don't understand how they do it... C++ 
+    - they also conclude that higher order derivatives of the gaussian detect fewer artifacts (see the BIG demo, re_gauss.pmd)
+        - **do we need a means of detecting noises and false detections? compare to a baseline?**
+    - Bottom line: do we use non-maximum suppression to thin edges or do we not....
+    - compare mean to max of thetas responses !!!!! 
+        - could it be better to simply take max along axis 0 to get strongest response out of all theta responses? 
+        - max produces a thicker mesh, mean produces thinner.... (which makes sense) 
+
 
 ----
 
@@ -85,16 +99,21 @@
     - interactive slider for threshold fine-tuning 
         - exposes that at very low thresholds noise creates a mesh-like structure 
     - is thresholding producing artifacts? 
-        - performed analysis without 
+        - performed analysis without thresholding
 
 
-- check number of cars (relative)
-- check with three thetas 
-- forget comparison to matlab 
-- focus on thresholding dynamically 
-- get meshwork size/density 
-- take 3 images 
-- check miruna's paper before trying something in python 
+#### TODO following meeting 
+
+- [ ] check (relative) number of CARs 
+- [X] fix max projection to be basal and cytosolic planes respectively 
+- [X] are six orientations too many?? .... check with three thetas 
+    - the output is similar, if not identical
+    - it appears that two orthogonal orientations e.g. 0 and 90 deg are sufficient to cover and reproduce pattern - the rest is repeated periodically
+    -  steerable source uses angles between 0-180
+- [ ] focus on thresholding dynamically, forget comparison to matlab
+- [ ] get meshwork size/density 
+- [ ] take 3 images 
+- [ ] check miruna's paper before trying something in python
     - note: the plugin does more things than we need 
-- upload and email all images/prelim results
-- fix max projection to be basal and cytosolic planes respectively 
+    - [actin mesh analyser](https://github.com/alexcarisey/ActinMeshAnalyzer)
+- [ ] upload and email all images/prelim results
