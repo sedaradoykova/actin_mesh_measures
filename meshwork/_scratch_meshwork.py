@@ -6,6 +6,46 @@ from itertools import chain
 from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
+""" Dynamic thresholding. """
+
+from skimage.measure import profile_line
+from matplotlib_scalebar.scalebar import ScaleBar
+
+data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
+os.listdir(data_path)
+
+# Basal [1],[1,3],[3,4],[1,2],[1],[1,4]
+# Cytoplasmic [4,6],[6,9],[6,8],[4,6],[3,5],[4,7]
+
+actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
+actimg.z_project_min()
+#actimg.visualise_stack('manipulated',colmap='gray')
+linprof = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
+linprof = linprof[np.argwhere(linprof>0)]
+
+plt.subplot(1,3,1)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='lower left') 
+plt.gca().add_artist(scalebar)
+plt.axis('off')
+plt.plot((0,actimg.shape[0]),(0,actimg.shape[1]), color='black')
+plt.subplot(1,3,2)
+plt.plot(linprof, color='black')
+plt.ylim(0,1.1*np.max(linprof))
+plt.xlabel('pixel location on line')
+plt.ylabel('intensity')
+plt.title('line profile after steerable Gaussian filter')
+plt.subplot(1,3,3)
+plt.hist(linprof)
+plt.tight_layout()
+plt.show();
+plt.close();
+
+np.percentile(linprof, 99)
+
+
 """
 - define what the focal plane is (done by Sabrina and Olivia, see excel.)
     - basal and cytoplasmic meshes
