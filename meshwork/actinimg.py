@@ -358,24 +358,25 @@ class ActinImg:
             raise ValueError('Raw data has not been normalised.') #use_raw = True
         if substack and (len(substack) > 2 or not isinstance(substack, list)): 
             raise ValueError('substack has to be a list of length 1 or 2, specifying a range.')
+        
         if substack and len(substack)==1:
             depth, rows, cols = 1, *self.shape
             data = np.empty((depth, rows, cols))
             data[0] = self.manipulated_stack[substack[0]-1].copy()
-
         elif substack and len(substack)==2: 
             if substack is not None and (substack[0] < 1 or substack[1] > self.manipulated_depth):
                 raise ValueError(f'substack must be a list of integers in range (1, {self.manipulated_depth}).')
             data = self.manipulated_stack[substack[0]-1:substack[1]].copy()
             depth, rows, cols = substack[1]-substack[0]+1, *self.shape
-        else:
+        elif substack is None:
             data = self.manipulated_stack.copy()
             depth, rows, cols = self.manipulated_depth, *self.shape
+        else: 
+            print('Problem loading the data')
 
         #### Separable filter kernels
         # Gaussian kernel mesh grid  
-        #Wx = np.floor((8/2)*sigma)
-        Wx = np.floor((8/2)*sigma*2)
+        Wx = np.floor((8/2)*sigma)
         Wx = Wx if Wx >= 1 else 1
 
         x = np.arange(-Wx,Wx+1) # determines kernel size 
@@ -412,7 +413,8 @@ class ActinImg:
                     (np.cos(theta))**2*I2a + np.sin(theta)**2*I2c - 2*np.cos(theta)*np.sin(theta)*I2b) #, dtype='uint16')
                 response_stack[count,:,:] = np.copy(response)
         else:
-            input = data[0,:,:]
+#            input = data[0,:,:]
+            input = data[:,:]
             # I2a = correlate(input, G2a, mode='nearest')
             # I2b = correlate(input, G2b, mode='nearest')
             # I2c = correlate(input, G2c, mode='nearest')
@@ -499,8 +501,7 @@ class ActinImg:
         """
         #### Separable filter kernels
         # Gaussian kernel mesh grid  
-        #Wx = np.floor((8/2)*sigma)
-        Wx = np.floor((8/2)*sigma*2)
+        Wx = np.floor((8/2)*sigma)
         Wx = Wx if Wx >= 1 else 1
         x = np.arange(-Wx,Wx+1) # determines kernel size 
         xx,yy = np.meshgrid(x,x)
