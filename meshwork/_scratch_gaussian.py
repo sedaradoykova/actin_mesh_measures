@@ -2,6 +2,28 @@ from actin_meshwork_analysis.meshwork.actinimg import get_ActinImg
 import numpy as np
 import matplotlib.pyplot as plt
 
+""" Test theta=0 and theta=30. """
+
+actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
+actimg.normalise()
+actimg.steerable_gauss_2order(theta=0,sigma=2,visualise=False)
+np.max(actimg.manipulated_stack) # cv2 and scipy 0.18660 vs matlab 0.1865   V
+np.min(actimg.manipulated_stack) # cv2 and scipy -0.2817174 vs matlab -0.2818   V
+np.mean(actimg.manipulated_stack) # cv2 and scipy -2.58174e-05 vs matlab -2.5817e-05   V
+
+np.sum(actimg.manipulated_stack > 0) # scipy 213852?? cv2 208343 vs matlab 177882
+plt.hist(actimg.manipulated_stack.ravel());plt.show();
+
+actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
+actimg.normalise()
+actimg.steerable_gauss_2order(theta=30,sigma=2,visualise=False)
+np.max(actimg.manipulated_stack) # cv2 .17327 vs matlab 0.1733   V
+np.min(actimg.manipulated_stack) # cv2 -0.275751 vs matlab -0.2758   V
+np.mean(actimg.manipulated_stack) # cv2 -2.58166e-05 vs matlab -2.5817e-05   V
+
+np.sum(actimg.manipulated_stack > 0) # scipy ? cv2 208659 vs matlab 177046 !!!
+plt.hist(actimg.manipulated_stack.ravel());plt.show();
+
 
 """ Bottom line: do we use non-maximum suppression to thin edges or do we not....
 non max supp used by steerablej source (cpp source is a pain to read)
