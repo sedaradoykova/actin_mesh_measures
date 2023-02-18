@@ -1,12 +1,25 @@
-import os
+import os, scipy.ndimage, cv2
 import numpy as np 
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
 from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
+from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates
 
-""" Dynamic thresholding. """
+
+
+"""Dynamic thresholding. 
+    Problems: 
+        - cannot use background because 
+            - (a) it's the response min proj not the raw image that is being thresholded 
+            - (b) it contains negative values (nonsense)
+        - even with current ideas it doesn't seem that the process can be done fully automatically... 
+    Current ideas: 
+        - get diagonal profile and threshold based on it
+        - threshold based on 90th percentile of all non-negative response values 
+        
+"""
 
 from skimage.measure import profile_line
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -22,8 +35,8 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
 actimg.z_project_min()
 #actimg.visualise_stack('manipulated',colmap='gray')
-linprof = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
-linprof = linprof[np.argwhere(linprof>0)]
+linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
+linprof = linprof_original[np.argwhere(linprof_original>0)]
 
 plt.subplot(1,3,1)
 plt.imshow(actimg.manipulated_stack,cmap='gray')
@@ -34,16 +47,67 @@ plt.plot((0,actimg.shape[0]),(0,actimg.shape[1]), color='black')
 plt.subplot(1,3,2)
 plt.plot(linprof, color='black')
 plt.ylim(0,1.1*np.max(linprof))
-plt.xlabel('pixel location on line')
-plt.ylabel('intensity')
+plt.xlabel('Pixel location on line')
+plt.ylabel('Pixel intensity value')
 plt.title('line profile after steerable Gaussian filter')
 plt.subplot(1,3,3)
 plt.hist(linprof)
 plt.tight_layout()
 plt.show();
+
 plt.close();
 
 np.percentile(linprof, 99)
+
+coords = _line_profile_coordinates((0,0), actimg.shape)
+coords.shape
+
+order, mode, cval = 1, 'reflect', 0.0
+
+pixels = scipy.ndimage.map_coordinates(actimg.manipulated_stack, coords, prefilter=order > 1,
+                                     order=order, mode=mode, cval=cval)
+
+pixels[pixels <= 1e-10] = 0
+resized_im = cv2.resize(np.transpose(pixels), (pixels.shape[0], 100))
+plt.imshow(resized_im, cmap='gray')
+plt.axis('off')
+plt.show()
+
+
+
+
+fig = plt.figure(figsize=(8, 7))
+fig.add_subplot(221)
+# plt.subplot(2,2,1)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='upper left') 
+plt.gca().add_artist(scalebar)
+plt.axis('off')
+plt.plot((0,actimg.shape[0]),(0,actimg.shape[1]), color='black')
+plt.title('(A) Minimum projection of\nsteerable Gaussian filter response')
+# ax = plt.subplot(2,2,3)
+ax = fig.add_subplot(223)
+plt.imshow(resized_im, cmap='inferno', extent=[0, resized_im.shape[1], 300, 350])
+plt.plot(linprof_original*10000, color='black')
+plt.ylim(0,1.2*np.max(linprof_original*10000))
+oticks = ax.get_yticks()
+nlabels = np.round(np.linspace(0,np.max(linprof_original), len(oticks[:-1])), 4)
+plt.yticks(ticks=oticks[:-1], labels=nlabels)
+plt.xlabel('Pixel location on line')
+plt.ylabel('Pixel intensity value')
+plt.title('(B) Line profile of steerable\nGaussian filter response')
+# plt.subplot(2,2,2)
+fig.add_subplot(122)
+plt.hist(linprof,color='darkgray')
+plt.xlabel('Pixel intensity value')
+plt.ylabel('Count')
+plt.title('(C) Histogram of\nnon-negative intensity values')
+#plt.tight_layout()
+plt.show();
+#fig.savefig('actin_meshwork_analysis/meshwork/test_data/figs/line_intensity.png',transparent=True)
+
+
+plt.close();
 
 
 """
