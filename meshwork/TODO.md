@@ -65,8 +65,8 @@
     - V: the image histograms are very very similar for theta=0 and 30 
     - V: min, max, mean = match; fraction > 0 is close but not identical.... 
 - [X] look at steerableJ source code  
-- [ ] steerable filter post-processing: 
-    - [Jacob and Canny (2004)](https://ieeexplore.ieee.org/document/1307008) use non-maximum suppression as a post-processing step. it is a procedure which thins edges 
+- [X] WIP: steerable filter post-processing: 
+    - [Jacob and Unser (2004)](https://ieeexplore.ieee.org/document/1307008) use non-maximum suppression as a post-processing step. it is a procedure which thins edges 
         - non max supp used by steerablej source (cpp source is a pain to read, took an entire day)
         - they implement custom non max supp, i don't understand how they do it... C++ 
     - they also conclude that higher order derivatives of the gaussian detect fewer artifacts (see the BIG demo, re_gauss.pmd)
@@ -75,7 +75,10 @@
     - compare mean to max of thetas responses !!!!! 
         - could it be better to simply take max along axis 0 to get strongest response out of all theta responses? 
         - max produces a thicker mesh, mean produces thinner.... (which makes sense) 
-
+    - [Miruna's paper, data analysis docx](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.1001152#s4) use various post-processing steps in an interactive image processing pipeline in matlab
+        - great idea of using line profile to threshold
+        - the software has some bugs and doesn't work with our images very well 
+    - current ideas summarised in lab_files/progress_Feb.ppt
 
 ----
 
