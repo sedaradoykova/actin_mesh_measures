@@ -5,7 +5,24 @@ from pathlib import Path
 from itertools import chain
 from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
-from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates
+from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
+from skimage.measure import profile_line
+
+
+
+data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
+os.listdir(data_path)
+
+actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
+actimg.z_project_min()
+#actimg.visualise_stack('manipulated',colmap='gray')
+linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
+linprof = linprof_original[np.argwhere(linprof_original>0)]
+
+plt_threshold_diagnostic(actimg, linprof_original)
+
 
 
 
@@ -87,7 +104,7 @@ plt.plot((0,actimg.shape[0]),(0,actimg.shape[1]), color='black')
 plt.title('(A) Minimum projection of\nsteerable Gaussian filter response')
 # ax = plt.subplot(2,2,3)
 ax = fig.add_subplot(223)
-plt.imshow(resized_im, cmap='inferno', extent=[0, resized_im.shape[1], 300, 350])
+plt.imshow(resized_im, cmap='gray', extent=[0, resized_im.shape[1], 300, 350])
 plt.plot(linprof_original*10000, color='black')
 plt.ylim(0,1.2*np.max(linprof_original*10000))
 oticks = ax.get_yticks()
@@ -98,7 +115,7 @@ plt.ylabel('Pixel intensity value')
 plt.title('(B) Line profile of steerable\nGaussian filter response')
 # plt.subplot(2,2,2)
 fig.add_subplot(122)
-plt.hist(linprof,color='darkgray')
+plt.hist(linprof,color='#545454')
 plt.xlabel('Pixel intensity value')
 plt.ylabel('Count')
 plt.title('(C) Histogram of\nnon-negative intensity values')
