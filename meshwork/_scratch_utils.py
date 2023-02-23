@@ -60,33 +60,34 @@ def plt_threshold_diagnostic(actimg, linprof_original):
     #plt.tight_layout()
     plt.show();
 
-plt_threshold_diagnostic(actimg, linprof_original)
+if '__name__' == '__main__':
+    plt_threshold_diagnostic(actimg, linprof_original)
 
-# choosing n bins 
-int(np.subtract(np.max(linprof),np.min(linprof)) / ( 2.59*np.subtract(*np.percentile(linprof, [75, 25]))/np.cbrt(len(linprof)) ))
+    # choosing n bins 
+    int(np.subtract(np.max(linprof),np.min(linprof)) / ( 2.59*np.subtract(*np.percentile(linprof, [75, 25]))/np.cbrt(len(linprof)) ))
 
-plt.hist(linprof,color='#A8A8A8',bins=10) # 154 Scott's normal reference (2.59*IQR) or 200 for Freedman–Diaconis rule (2*IQR) 
-plt.show()
-2*np.cbrt(len(linprof))
+    plt.hist(linprof,color='#A8A8A8',bins=10) # 154 Scott's normal reference (2.59*IQR) or 200 for Freedman–Diaconis rule (2*IQR) 
+    plt.show()
+    2*np.cbrt(len(linprof))
 
-np.subtract(np.max(linprof),np.min(linprof))*np.cbrt(len(linprof))/(3.49*np.std(linprof))
+    np.subtract(np.max(linprof),np.min(linprof))*np.cbrt(len(linprof))/(3.49*np.std(linprof))
 
 
-np.format_float_scientific(0.002341088804324921,2)
-list(map(lambda percent: np.percentile(linprof, percent), [90,95,98]))
+    np.format_float_scientific(0.002341088804324921,2)
+    list(map(lambda percent: np.percentile(linprof, percent), [90,95,98]))
 
-data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
-os.listdir(data_path)
+    data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
+    os.listdir(data_path)
 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
-actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
-actimg.z_project_min()
-#actimg.visualise_stack('manipulated',colmap='gray')
-linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
-linprof = linprof_original[np.argwhere(linprof_original>0)]
+    actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+    actimg.normalise()
+    actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
+    actimg.z_project_min()
+    #actimg.visualise_stack('manipulated',colmap='gray')
+    linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
+    linprof = linprof_original[np.argwhere(linprof_original>0)]
 
-plt_threshold_diagnostic(actimg, linprof_original)
+    plt_threshold_diagnostic(actimg, linprof_original)
 
 
 

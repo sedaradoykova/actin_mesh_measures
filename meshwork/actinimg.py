@@ -413,8 +413,8 @@ class ActinImg:
                     (np.cos(theta))**2*I2a + np.sin(theta)**2*I2c - 2*np.cos(theta)*np.sin(theta)*I2b) #, dtype='uint16')
                 response_stack[count,:,:] = np.copy(response)
         else:
-#            input = data[0,:,:]
-            input = data[:,:]
+            input = data[0,:,:]
+#            input = data[:,:] # use for debugging
             # I2a = correlate(input, G2a, mode='nearest')
             # I2b = correlate(input, G2b, mode='nearest')
             # I2c = correlate(input, G2c, mode='nearest')

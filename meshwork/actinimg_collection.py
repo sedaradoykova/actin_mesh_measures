@@ -142,9 +142,9 @@ class ActinImgCollection:
         curr_filenames, curr_filepath = self._all_filenames[subdir], self._all_filepaths[subdir]
         curr_filenames = [f for f in curr_filenames if 'tif' in f and f not in self._filenames_to_del]
         if 'untr' in subdir.lower():
-            curr_planes = self.focal_planes[self.focal_planes['Type'] == 'Untransduced']
+            curr_planes = self.focal_planes[self.focal_planes['Type'].apply(lambda x: 'untrans' in x.lower())]
         elif 'car' in subdir.lower():
-            curr_planes = self.focal_planes[self.focal_planes['Type'] == 'CAR']
+            curr_planes = self.focal_planes[self.focal_planes['Type'].apply(lambda x: 'car' in x.lower())]
         else:
             raise ValueError('Cell type not recognised as either Untransduced or CAR.')
 
