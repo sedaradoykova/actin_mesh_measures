@@ -75,7 +75,7 @@
     - compare mean to max of thetas responses !!!!! 
         - could it be better to simply take max along axis 0 to get strongest response out of all theta responses? 
         - max produces a thicker mesh, mean produces thinner.... (which makes sense) 
-    - [Miruna's paper, data analysis docx](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.1001152#s4) use various post-processing steps in an interactive image processing pipeline in matlab
+    - [Miruna's paper, data analysis docx](https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.1001152#s4) ([github](https://github.com/alexcarisey/ActinMeshAnalyzer))use various post-processing steps in an interactive image processing pipeline in matlab
         - great idea of using line profile to threshold
         - the software has some bugs and doesn't work with our images very well 
     - current ideas summarised in lab_files/progress_Feb.ppt
@@ -107,16 +107,49 @@
 
 #### TODO following meeting 
 
-- [ ] check (relative) number of CARs 
+- [X] check (relative) number of CARs 
+    | Cell type     | Count | 
+    | ---           | --- | 
+    | Untransduced    | 22 |
+    | CAR_dual        | 25 |
+    | CAR_antiCD19    | 11 |
+    | CAR_antiCD22     | 7 |
+    | CAR_UNTR         | 6 |
 - [X] fix max projection to be basal and cytosolic planes respectively 
 - [X] are six orientations too many?? .... check with three thetas 
     - the output is similar, if not identical
     - it appears that two orthogonal orientations e.g. 0 and 90 deg are sufficient to cover and reproduce pattern - the rest is repeated periodically
     -  steerable source uses angles between 0-180
-- [ ] focus on thresholding dynamically, forget comparison to matlab
-- [ ] get meshwork size/density 
-- [ ] take 3 images 
-- [ ] check miruna's paper before trying something in python
+- [-] focus on thresholding dynamically, forget comparison to matlab
+- [-] take 3 images, get meshwork size/density 
+- [X] check miruna's paper before trying something in python
     - note: the plugin does more things than we need 
     - [actin mesh analyser](https://github.com/alexcarisey/ActinMeshAnalyzer)
-- [ ] upload and email all images/prelim results
+    - **see above**
+- [X] upload and email all images/prelim results
+    - there is a problem with the frame names and displayed images - noticed in CAR - lagging one image behind?? 
+        - fixed when re-run analysis 
+
+
+## 22/02 meeting notes and new TODO
+
+- [ ] get C++ to work on windows 
+    - tried installing on my machine, reqs: visual studio 2022, vcpkg, GSL (GNU scientific library), C++ compiler and extensions for VSCode
+    - problem: installation cannot find gsl/gsl_some_func.h file even though it is recognised by VSC in the script
+    - same problem for matlab: -I/src/gsl/include not recognised as a command 
+    - 
+- [ ] max projection: 
+    - normalise img and whack up contrast (as in SF2 A/D)
+    - z=0 (starting of basal plane) to z=1 micrometer (check z-step size)
+        - include frames n to n+m (m being the frame at depth = 1mu)
+    - 
+- [ ] dynamic thresholding: get line profiles from different positions and aggregate 
+    - try lines crossing ROI **OR** lines which are in the periphery **OR** boxes in the periphery
+        - or background boxes: discard line if order of magnitude difference in intensity values? another cell's noise... 
+    - fit Gaussian to aggregated line profile and take mean + 1/2 st devs
+        - Signal must be Gaussian :) 
+    - ideal background = no cell parts, then noise = Poisson distributed 
+- [ ] steerable filter post-processing 
+    - invert steerable response average **OR** use an inverse filter with values `< threshold` kept (instead of `> threshold`)
+        - OR use mean - st dev 
+    - for inversion of response: normalise [0,1] and invert 
