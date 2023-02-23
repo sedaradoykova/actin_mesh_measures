@@ -8,7 +8,119 @@ from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
+""" Mesh size and morphological operations. """
 
+
+data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/Untransduced")
+os.listdir(data_path)
+
+from PIL import Image
+
+
+actimg = get_ActinImg('3min_Fri_FOV2_decon.tif', data_path) # 1,3 / 6,8
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[1,3],visualise=False)
+
+# im = ~actimg.manipulated_stack[0]
+# img = Image.fromarray(im)
+# img.save('test_image_inv.tiff')
+
+actimg.z_project_min()
+actimg.visualise_stack('manipulated',colmap='gray')
+
+linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
+linprof = linprof_original[np.argwhere(linprof_original>0)]
+plt_threshold_diagnostic(actimg, linprof_original)
+
+actimg.threshold(0.0015) # 0.0234 0.0291 0.0342
+actimg.visualise_stack('manipulated',colmap='gray')
+
+
+from scipy.ndimage import correlate, morphology, label, binary_closing
+from skimage import measure
+from skimage import morphology as skimorph
+img = np.copy(actimg.manipulated_stack)
+
+
+# closing 
+# allows to specify a (square?) structure which is used to close the holes in the image 
+closed_image = binary_closing(img, structure = np.ones((15,15))) # compare    5,5   7,7   10,10   15,15   30,30
+difference_closed = closed_image-img
+labeled_image, num_features = label(closed_image)
+
+# filling 
+#filled_image = morphology.binary_fill_holes(img)
+filled_image = morphology.binary_fill_holes(img)#,structure=np.ones((5,5)))
+difference_filled = filled_image-img
+
+
+plt.subplot(2,3,1)
+plt.imshow(img, cmap='gray')
+plt.title('binary image')
+plt.axis('off')
+plt.subplot(2,3,2)
+plt.imshow(closed_image, cmap='gray')
+plt.title('closed image')
+plt.axis('off')
+plt.subplot(2,3,3)
+plt.imshow(difference_closed, cmap='gray')
+plt.title('difference image')
+plt.axis('off')
+
+plt.subplot(2,3,4)
+plt.imshow(img, cmap='gray')
+plt.title('binary image')
+plt.axis('off')
+plt.subplot(2,3,5)
+plt.imshow(filled_image, cmap='gray')
+plt.title('filled image')
+plt.axis('off')
+plt.subplot(2,3,6)
+plt.imshow(difference_filled, cmap='gray')
+plt.title('difference image')
+plt.axis('off')
+plt.show();
+
+
+# area opening 
+# open inverted image and display inverted opened image? 
+opened_image = skimorph.area_opening(~img, 600) # area_threshold 
+difference = opened_image-img
+
+plt.subplot(1,3,1)
+plt.imshow(img, cmap='gray')
+plt.title('binary image')
+plt.axis('off')
+plt.subplot(1,3,2)
+plt.imshow(~opened_image, cmap='gray')
+plt.title('closed image')
+plt.axis('off')
+plt.subplot(1,3,3)
+plt.imshow(difference, cmap='gray')
+plt.title('difference image')
+plt.axis('off')
+plt.show();
+
+
+
+
+np.sum(difference_filled)
+np.sum(difference_filled)*100 / (difference_filled.shape[0]*difference_filled.shape[1])
+
+labels = measure.label(img)
+props = measure.regionprops(labels)
+
+for prop in props:
+    print('Label: {} >> Object size: {}'.format(prop.label, prop.area))
+
+props[1].area
+
+plt.imshow(labels, cmap=plt.cm.gnuplot); plt.show();
+
+
+
+
+""" Show diagnostic plot. """
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
 os.listdir(data_path)
@@ -25,7 +137,6 @@ plt_threshold_diagnostic(actimg, linprof_original)
 
 
 
-
 """Dynamic thresholding. 
     Problems: 
         - cannot use background because 
@@ -35,7 +146,9 @@ plt_threshold_diagnostic(actimg, linprof_original)
     Current ideas: 
         - get diagonal profile and threshold based on it
         - threshold based on 90th percentile of all non-negative response values 
-        
+    New ideas: 
+        - use something like hysteresis thresholding? (have two thresholds)
+        - OR use opening by reconstruction to remove noise from poorly thresholded image 
 """
 
 from skimage.measure import profile_line
@@ -143,7 +256,7 @@ plt.close();
 
 
 
-""" Working out the mesh size. """
+""" Working out the mesh size (old). """
 
 actimg = get_ActinImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
 actimg.normalise()
