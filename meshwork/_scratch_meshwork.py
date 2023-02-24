@@ -8,6 +8,7 @@ from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
 from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
+
 """ Mesh size and morphological operations. """
 
 
@@ -149,6 +150,8 @@ plt_threshold_diagnostic(actimg, linprof_original)
     New ideas: 
         - use something like hysteresis thresholding? (have two thresholds)
         - OR use opening by reconstruction to remove noise from poorly thresholded image 
+    Post-meeting ideas: 
+        - take line profiles from several places, average out and fit gaussian for dynamic thresholding 
 """
 
 from skimage.measure import profile_line
@@ -165,27 +168,169 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
 actimg.z_project_min()
 #actimg.visualise_stack('manipulated',colmap='gray')
-linprof_original = profile_line(actimg.manipulated_stack, (0,0), actimg.shape)
-linprof = linprof_original[np.argwhere(linprof_original>0)]
+rows, cols = actimg.shape
+lineprof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)], 
+                   [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
+line_profs = [] 
+for start, end in lineprof_coords: 
+    line_profs.append(profile_line(actimg.manipulated_stack, start, end, linewidth=5).ravel())
 
-plt.subplot(1,3,1)
+all_profs = np.concatenate(line_profs).ravel()
+all_profs.shape
+all_profs.sort()
+# 2653
+
+plt.plot(all_profs, 'o'); plt.show()
+plt.hist(all_profs, bins=50); plt.show()
+plt.imshow(all_profs.reshape(8,353),cmap='gray');plt.axis('off');plt.show()
+
+import scipy.stats
+_, bins, _ = plt.hist(all_profs, 100, density=1, alpha=0.5)
+mu, sigma = scipy.stats.norm.fit(all_profs)
+best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma)
+plt.plot(bins, best_fit_line)
+plt.show()
+print(f'{mu:.6f}, {sigma:.6f}')
+# -0.000876, 0.006132
+
+plt.subplot(1,2,1)
 plt.imshow(actimg.manipulated_stack,cmap='gray')
-scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='lower left') 
+scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='upper left') 
 plt.gca().add_artist(scalebar)
 plt.axis('off')
-plt.plot((0,actimg.shape[0]),(0,actimg.shape[1]), color='black')
-plt.subplot(1,3,2)
-plt.plot(linprof, color='black')
-plt.ylim(0,1.1*np.max(linprof))
-plt.xlabel('Pixel location on line')
-plt.ylabel('Pixel intensity value')
-plt.title('line profile after steerable Gaussian filter')
-plt.subplot(1,3,3)
-plt.hist(linprof)
-plt.tight_layout()
+plt.title('steerable Gaussian filter resposne')
+for (r1,r2),(c1,c2) in lineprof_coords: 
+    plt.plot((r1,c1),(r2,c2), color='black')
+plt.subplot(1,2,2)
+_, bins, _ = plt.hist(all_profs, 100, density=1, alpha=0.95, color='#A8A8A8')
+plt.plot(bins, best_fit_line, color='black')
+plt.ylabel('Count')
+plt.xlabel('Pixel intensity value')
+plt.title('aggregated line profiles\nafter steerable Gaussian filter')
+plt.show();
+
+
+
+from scipy.optimize import curve_fit
+nbins = 100
+
+_, bins, _ = plt.hist(all_profs, nbins, density=1, alpha=0.8)
+mu, sigma_scipy = scipy.stats.norm.fit(all_profs)
+best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma_scipy)
+plt.plot(bins, best_fit_line)
+plt.show()
+
+
+def gaussian(x, mu, sigma, a, c):
+    y = a*np.exp(-(x-mu)**2/(2*sigma**2)) + c
+    return y 
+
+
+# scipy fit
+ns, bins, _ = plt.hist(all_profs, nbins, density=1, color='#A8A8A8') # alpha=0.5
+binned_prof = (bins+(bins[1] - bins[0])/2)[:-1]
+mean = sum(ns*binned_prof)/sum(ns)                  
+sigma = sum(ns*(binned_prof-mean)**2)/sum(ns) 
+
+#ns[np.argmax(ns)] = 0.3*np.max(ns)
+plt.plot(ns); plt.show()
+fit_params, fit_covs = curve_fit(gaussian, binned_prof, ns) # p0=[mean,sigma,0.3*np.max(ns),0]
+#                                 bounds = ([0, np.min(xind), 0, 0], 
+#                                         [np.inf, np.max(xind), 100, np.inf]))
+
+fit_y = gaussian(binned_prof, *fit_params)
+# full width at half maximum
+fwhm = 2*np.sqrt(2*np.log(2))*fit_params[1]
+
+plt.plot(binned_prof, ns, color='black', label='binned points')
+plt.legend(loc='upper left')
+plt.show()
+
+
+plt.hist(all_profs, nbins, density=1, color='#A8A8A8') # alpha=0.5
+plt.plot(binned_prof, ns,':.',color='black', alpha=0.75, label='binned points')
+plt.plot(binned_prof, fit_y,'--',color = 'black', alpha=0.75, label='gauss fit')
+#plt.xlim(-.02,.02)
+plt.legend(loc='upper left')
+plt.show()
+print(f'\n                 MU              SIGMA'+
+      f'\nmy fitter:       {fit_params[0]:.6f}       {fit_params[1]:.6f}'+
+      f'\nscipy.fit.norm:  {mu:.6f}       {sigma:.6f}\n')
+
+
+plt.subplot(1,2,1)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='upper left') 
+plt.gca().add_artist(scalebar)
+plt.axis('off')
+plt.title('steerable Gaussian filter resposne')
+for (r1,r2),(c1,c2) in lineprof_coords: 
+    plt.plot((r1,c1),(r2,c2), color='black')
+plt.subplot(1,2,2)
+_, bins, _ = plt.hist(all_profs, 30, density=1, alpha=0.95, color='#A8A8A8')
+plt.plot(bins, fit_y, color='black')
+plt.ylabel('Count')
+plt.xlabel('Pixel intensity value')
+plt.title('aggregated line profiles\nafter steerable Gaussian filter')
 plt.show();
 
 plt.close();
+
+
+import scipy.signal as signal
+width, width_height, int_ptsL, int_ptsR = signal.peak_widths(ns, signal.find_peaks(ns, 0.3*(len(ns)))[0]) # this measure depends on bin width 
+plt.plot(ns);plt.show()
+width[0]*(binned_prof[1] - binned_prof[0])
+# 0.00265017 vs fit 0.00101703642
+# 0.00128143 vs fit 0.000178805226
+fit_params
+ns[76:80]
+
+np.allclose(bins[1] - bins[0], binned_prof[1]-binned_prof[0])
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import gaussian_kde
+import pandas as pd
+ns, bins, _ = plt.hist(all_profs, nbins, density=1, color='#A8A8A8') # alpha=0.5
+binned_prof = (bins+(bins[1] - bins[0])/2)[:-1]
+
+density = gaussian_kde(ns)
+density.covariance_factor = lambda : .25
+density._compute_covariance()
+plt.plot(binned_prof,density(binned_prof))
+plt.show()
+
+pd.DataFrame({'counts':ns, 'int': binned_prof}).counts.plot(kind='density'); plt.show()
+
+"""
+fig = plt.figure()
+x_hist_2=np.linspace(np.min(x_hist),np.max(x_hist),nbins)
+plt.plot(x_hist_2,gaussian(x_hist_2,*param_optimised),'r--',label='Gaussian fit')
+plt.legend()
+# Normalise the histogram values
+weights = np.ones_like(all_profs) / len(all_profs)
+plt.hist(all_profs, weights=weights, bins=nbins)
+plt.show()
+"""
+
+
+img = actimg.manipulated_stack.copy()
+actimg.nuke()
+actimg.z_project_max([3,5])
+max_proj = actimg.manipulated_stack.copy()
+mu, sigma = fit_params[0:2]
+thresh_ways = ['max_proj', 'img < mu', 'img < mu-0.5*sigma', 'img < mu-1*sigma', 'img < mu-1.5*sigma', 'img < mu-2*sigma', 
+               'img', 'img > mu', 'img > mu+0.5*sigma', 'img > mu+1*sigma', 'img > mu+1.5*sigma', 'img > mu+2*sigma']
+plt_rows = 2
+for n, exp in enumerate(thresh_ways):
+    plt.subplot(plt_rows, int(len(thresh_ways)/plt_rows), n+1)
+    thresh = eval(exp)
+    plt.imshow(thresh, cmap='gray')
+    plt.axis('off')
+    plt.title(exp)
+plt.show()
+
 
 np.percentile(linprof, 99)
 
