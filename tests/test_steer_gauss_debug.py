@@ -1,4 +1,4 @@
-from meshwork.steerable_gaussian_debugging import steerable_gauss_2order
+from meshwork._steerable_gaussian_debugging import steerable_gauss_2order
 import pytest
 import numpy as np
 import matplotlib.pyplot as plt

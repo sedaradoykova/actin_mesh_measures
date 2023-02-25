@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from tqdm import tqdm
-from actin_meshwork_analysis.meshwork.actinimg import get_ActinImg
-from actin_meshwork_analysis.meshwork.utils import list_files_dir_str, search_files_root
+from meshure.actinimg import get_ActinImg
+from meshure.utils import list_files_dir_str, search_files_root
 
 """ TODO: 
     - add checks to make sure everything is parametrised 
