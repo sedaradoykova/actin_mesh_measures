@@ -13,7 +13,7 @@ setup(
     #     include = ['meshwork']  # alternatively: `include=['additional*']`
     #     ),  
     # package_dir = {"": "actin_meshwork_analysis"},
-    packages = ['meshwork'],
+    packages = ['meshure'],
     install_requires = [
         'Cython==0.29.32',
         'h5py==3.8.0',
