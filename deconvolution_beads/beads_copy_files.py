@@ -3,7 +3,7 @@ It makes a new dir deconvolution_beads/beads_files and copies all matching files
 """
 
 import os, shutil
-from actin_meshwork_analysis.meshwork.utils import search_files_root
+from meshure.utils import search_files_root
 
 rename_tiff_to_tif = False
 

@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
-#from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
-from actin_meshwork_analysis.meshwork._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
+from meshure.actinimg import ActinImg, get_ActinImg
+#from meshure.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
+from meshure._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
 
@@ -603,7 +603,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from actin_meshwork_analysis.meshwork.actinimg import ActinImg, get_ActinImg
+from actin_meshwork_analysis.meshure.actinimg import ActinImg, get_ActinImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
 

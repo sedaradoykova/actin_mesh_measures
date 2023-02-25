@@ -1,4 +1,4 @@
-from actin_meshwork_analysis.meshwork.actinimg import get_ActinImg
+from meshure.actinimg import get_ActinImg
 import numpy as np
 import matplotlib.pyplot as plt
 
