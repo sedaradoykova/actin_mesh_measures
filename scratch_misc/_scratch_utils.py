@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.measure import profile_line
 from matplotlib_scalebar.scalebar import ScaleBar
-from meshwork.actinimg import get_ActinImg
+from meshure.actinimg import get_ActinImg
 
 def plt_threshold_diagnostic(actimg, linprof_original):
     linprof = linprof_original[np.argwhere(linprof_original>0)]

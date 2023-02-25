@@ -166,7 +166,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from tifffile import imread
 from scipy import io
-from meshwork.steerable_gaussian_debugging import steerable_gauss_2order
+from meshure._steerable_gaussian_debugging import steerable_gauss_2order
 
 """- run steerable filter in matlab on an actin image and see output  
 """
