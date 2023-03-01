@@ -2,11 +2,14 @@ import os, cv2, warnings
 import numpy as np 
 import matplotlib.pyplot as plt
 from matplotlib_scalebar.scalebar import ScaleBar
+import scipy.stats
+from scipy.optimize import curve_fit
 from scipy.ndimage import correlate, morphology
-from skimage import measure
+from skimage.measure import profile_line
 from dataclasses import dataclass
 from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
- 
+
+
 """ Design considerations: 
     Currently, the original data is kept and modifications happen on a copy which is internally updated 
     after methods are called on it with the option of nuking the modifications to restore original object. 
@@ -331,7 +334,84 @@ class ActinImg:
         self._call_hist('threshold')
         return None
 
+
+    def threshold_dynamic(self, line_prof_coords=None, nbins=50, fitting_method='curve_fit', vis=False): 
+        """ Obtain line profiles specified in boundaries line_prof_coords, fit a Gaussian curve to signal peak, threshold +- n*sigma.
         
+        Arguments
+        ---------
+        line_prof_coords : nested list of tuples 
+            List of tuples [[start, end], ...] where start = (start_row, start_col) and end = (end_row, end_col) specify the start and end point of the profile, respectively. 
+        
+        Returns
+        -------
+        (mu, sigma) : tuple of floats 
+            Mean and standard deviation of the Gaussian fit. 
+        """
+        # get line profile 
+        if not line_prof_coords: 
+            rows, cols = self.shape
+            line_prof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)],
+                               [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
+        line_profs = [None]*len(line_prof_coords) 
+        for n, (start, end) in enumerate(line_prof_coords): 
+            line_profs[n] = profile_line(self.manipulated_stack, start, end, linewidth=5).ravel()
+
+        all_profs = np.concatenate(line_profs).ravel() # shape (n,)
+        all_profs.sort()
+
+        if fitting_method=='scipy.stats.norm.fit':
+            counts, bins = np.histogram(all_profs, nbins)
+
+            mu, sigma = scipy.stats.norm.fit(all_profs)
+            if vis: 
+                best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma)
+                plt.bar(bins[:-1] + np.diff(bins) / 2, counts, np.diff(bins), color='#A8A8A8')
+                plt.plot(bins, best_fit_line)
+                plt.show()
+                print(f'{mu:.6f}, {sigma:.6f}')
+        elif fitting_method=='curve_fit':
+            def gaussian(x, mu, sigma, a, c):
+                y = a*np.exp(-(x-mu)**2/(2*sigma**2)) + c
+                return y
+             
+            counts, bins = np.histogram(all_profs, nbins) # alpha=0.5
+            binned_prof = (bins+(bins[1] - bins[0])/2)[:-1] # shift vals and drop last bin
+            # mean = sum(counts*binned_prof)/sum(counts)                  
+            # sigma = sum(counts*(binned_prof-mean)**2)/sum(counts) 
+
+
+            fit_params, fit_covs = curve_fit(gaussian, binned_prof, counts,
+            #                           p0=[mean,sigma,0.3*np.max(counts),0]
+                                      bounds = ([all_profs[0], 0, 0, 0], # min mu, sigma, a, c 
+                                                [1, np.inf, np.inf, np.inf])) # max mu, sigma, a, c 
+            mu, sigma = fit_params[0:2]
+            fit_y = gaussian(binned_prof, *fit_params)
+            # full width at half maximum
+            fwhm = 2*np.sqrt(2*np.log(2))*fit_params[1]
+            if vis:
+                plt.subplot(1,2,1)
+                plt.imshow(self.manipulated_stack,cmap='gray')
+                scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='black', location='upper left') 
+                plt.gca().add_artist(scalebar)
+                plt.axis('off')
+                plt.title('steerable Gaussian filter resposne')
+                for (r1,r2),(c1,c2) in line_prof_coords: 
+                    plt.plot((r1,c1),(r2,c2), color='black')
+                plt.subplot(1,2,2)
+                plt.bar(bins[:-1] + np.diff(bins) / 2, counts, np.diff(bins), color='#A8A8A8', alpha=0.95)
+                plt.plot(binned_prof, fit_y, color='black', label=f'mu={mu:.5f},sigma{sigma:.5f}')
+                plt.ylabel('Count')
+                plt.xlabel('Pixel intensity value')
+                plt.title('aggregated line profiles\nafter steerable Gaussian filter')
+                plt.legend(loc='upper left')
+                plt.show();
+        else: 
+            raise ValueError(f"Unrecognised method {fitting_method}; choose from 'scipy.stats.norm.fit' or 'curve_fit'.")
+        return mu, sigma
+
+
+
     def steerable_gauss_2order(self, substack=None, sigma: float=2.0, theta: float=0., visualise: bool=True, tmp: bool=False):
         """ Steers an X-Y separable second order Gaussian filter in direction theta.
         Implemented according to W. T. Freeman and E. H. Adelson, "The Design and Use of Steerable Filters", IEEE PAMI, 1991.

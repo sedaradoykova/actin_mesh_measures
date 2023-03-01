@@ -5,7 +5,8 @@ from pathlib import Path
 from itertools import chain
 from meshure.actinimg import ActinImg, get_ActinImg
 #from meshure.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
-from meshure._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
+os.chdir('actin_meshwork_analysis/scratch_misc')
+from _scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
 
@@ -157,7 +158,7 @@ plt_threshold_diagnostic(actimg, linprof_original)
 from skimage.measure import profile_line
 from matplotlib_scalebar.scalebar import ScaleBar
 
-data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
+data_path = os.path.join(os.getcwd(), "../process_data/sample_data/CARs")
 os.listdir(data_path)
 
 # Basal [1],[1,3],[3,4],[1,2],[1],[1,4]
@@ -179,6 +180,7 @@ all_profs = np.concatenate(line_profs).ravel()
 all_profs.shape
 all_profs.sort()
 # 2653
+#np.savetxt("line_profiles_aggregated.csv", all_profs, delimiter=",")
 
 plt.plot(all_profs, 'o'); plt.show()
 plt.hist(all_profs, bins=50); plt.show()
@@ -212,7 +214,7 @@ plt.show();
 
 
 from scipy.optimize import curve_fit
-nbins = 100
+nbins = 400
 
 _, bins, _ = plt.hist(all_profs, nbins, density=1, alpha=0.8)
 mu, sigma_scipy = scipy.stats.norm.fit(all_profs)
@@ -234,10 +236,9 @@ sigma = sum(ns*(binned_prof-mean)**2)/sum(ns)
 
 #ns[np.argmax(ns)] = 0.3*np.max(ns)
 plt.plot(ns); plt.show()
-fit_params, fit_covs = curve_fit(gaussian, binned_prof, ns) # p0=[mean,sigma,0.3*np.max(ns),0]
-#                                 bounds = ([0, np.min(xind), 0, 0], 
-#                                         [np.inf, np.max(xind), 100, np.inf]))
-
+fit_params, fit_covs = curve_fit(gaussian, binned_prof, ns, p0=[mean,sigma,500,0])
+                                            # bounds = ([all_profs[0], 0, 0, 0], # min mu, sigma, a, c 
+                                            #     [1, np.inf, np.inf, np.inf])) # max mu, sigma, a, 
 fit_y = gaussian(binned_prof, *fit_params)
 # full width at half maximum
 fwhm = 2*np.sqrt(2*np.log(2))*fit_params[1]
@@ -247,9 +248,9 @@ plt.legend(loc='upper left')
 plt.show()
 
 
-plt.hist(all_profs, nbins, density=1, color='#A8A8A8') # alpha=0.5
+plt.hist(all_profs, nbins, density=True, color='#A8A8A8') # alpha=0.5
 plt.plot(binned_prof, ns,':.',color='black', alpha=0.75, label='binned points')
-plt.plot(binned_prof, fit_y,'--',color = 'black', alpha=0.75, label='gauss fit')
+plt.plot(binned_prof, fit_y,'--',color = 'red', alpha=0.75, label='gauss fit')
 #plt.xlim(-.02,.02)
 plt.legend(loc='upper left')
 plt.show()
@@ -288,6 +289,8 @@ ns[76:80]
 
 np.allclose(bins[1] - bins[0], binned_prof[1]-binned_prof[0])
 
+
+# fit to kernel density plot - not as brilliant and promising as once hoped 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import gaussian_kde
