@@ -327,16 +327,16 @@ class ActinImg:
             print('Data has not been projected in z.') #raise ValueError
         if not isinstance(threshold, float):
             raise TypeError('Threshold must be a float.')
-        if threshold < 0 or threshold >=1: 
-            raise ValueError('Threshold cannot be <0 or >= 1.')
+        # if threshold < 0 or threshold >=1: 
+        #     raise ValueError('Threshold cannot be <0 or >= 1.')
 
-        self.manipulated_stack = (self.manipulated_stack > threshold).astype('int')
+        self.manipulated_stack = (self.manipulated_stack < threshold).astype('int')
         self._call_hist('threshold')
         return None
 
 
-    def threshold_dynamic(self, line_prof_coords=None, nbins=50, fitting_method='curve_fit', vis=False): 
-        """ Obtain line profiles specified in boundaries line_prof_coords, fit a Gaussian curve to signal peak, threshold +- n*sigma.
+    def threshold_find_mu_sigma(self, line_prof_coords=None): 
+        """ Obtains line profiles specified in boundaries line_prof_coords, returns mean and standard deviation of aggregated profile.
         
         Arguments
         ---------
@@ -346,7 +346,7 @@ class ActinImg:
         Returns
         -------
         (mu, sigma) : tuple of floats 
-            Mean and standard deviation of the Gaussian fit. 
+            Mean and standard deviation of the aggregated line profiles. 
         """
         # get line profile 
         if not line_prof_coords: 
@@ -358,57 +358,42 @@ class ActinImg:
             line_profs[n] = profile_line(self.manipulated_stack, start, end, linewidth=5).ravel()
 
         all_profs = np.concatenate(line_profs).ravel() # shape (n,)
-        all_profs.sort()
+        mu, sigma = np.mean(all_profs), np.std(all_profs)
 
-        if fitting_method=='scipy.stats.norm.fit':
-            counts, bins = np.histogram(all_profs, nbins)
-
-            mu, sigma = scipy.stats.norm.fit(all_profs)
-            if vis: 
-                best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma)
-                plt.bar(bins[:-1] + np.diff(bins) / 2, counts, np.diff(bins), color='#A8A8A8')
-                plt.plot(bins, best_fit_line)
-                plt.show()
-                print(f'{mu:.6f}, {sigma:.6f}')
-        elif fitting_method=='curve_fit':
-            def gaussian(x, mu, sigma, a, c):
-                y = a*np.exp(-(x-mu)**2/(2*sigma**2)) + c
-                return y
-             
-            counts, bins = np.histogram(all_profs, nbins) # alpha=0.5
-            binned_prof = (bins+(bins[1] - bins[0])/2)[:-1] # shift vals and drop last bin
-            # mean = sum(counts*binned_prof)/sum(counts)                  
-            # sigma = sum(counts*(binned_prof-mean)**2)/sum(counts) 
-
-
-            fit_params, fit_covs = curve_fit(gaussian, binned_prof, counts,
-            #                           p0=[mean,sigma,0.3*np.max(counts),0]
-                                      bounds = ([all_profs[0], 0, 0, 0], # min mu, sigma, a, c 
-                                                [1, np.inf, np.inf, np.inf])) # max mu, sigma, a, c 
-            mu, sigma = fit_params[0:2]
-            fit_y = gaussian(binned_prof, *fit_params)
-            # full width at half maximum
-            fwhm = 2*np.sqrt(2*np.log(2))*fit_params[1]
-            if vis:
-                plt.subplot(1,2,1)
-                plt.imshow(self.manipulated_stack,cmap='gray')
-                scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='black', location='upper left') 
-                plt.gca().add_artist(scalebar)
-                plt.axis('off')
-                plt.title('steerable Gaussian filter resposne')
-                for (r1,r2),(c1,c2) in line_prof_coords: 
-                    plt.plot((r1,c1),(r2,c2), color='black')
-                plt.subplot(1,2,2)
-                plt.bar(bins[:-1] + np.diff(bins) / 2, counts, np.diff(bins), color='#A8A8A8', alpha=0.95)
-                plt.plot(binned_prof, fit_y, color='black', label=f'mu={mu:.5f},sigma{sigma:.5f}')
-                plt.ylabel('Count')
-                plt.xlabel('Pixel intensity value')
-                plt.title('aggregated line profiles\nafter steerable Gaussian filter')
-                plt.legend(loc='upper left')
-                plt.show();
-        else: 
-            raise ValueError(f"Unrecognised method {fitting_method}; choose from 'scipy.stats.norm.fit' or 'curve_fit'.")
         return mu, sigma
+
+    def threshold_preview_cases(self, mu: float, sigma: float, factors=None, save: bool=False, dest_dir: str=os.getcwd()):
+        if not isinstance(mu, float) or not isinstance(sigma, float):
+            raise TypeError('Mu and sigma must both be floats.')
+        try: 
+            factors = np.array(factors)
+        except: 
+            raise TypeError('Factor must be array-like.')
+        img = self.manipulated_stack.copy()
+
+        threshold_variants = ['img']
+        threshold_variants.extend([f'img < mu-{factor}*sigma' for factor in factors])
+
+
+        figrows, figcols = get_fig_dims(len(threshold_variants))
+        for n, exp in enumerate(threshold_variants):
+            ax = plt.subplot(figrows,figcols,n+1)
+            if 'mu' in exp:
+                thresh = eval(exp)
+                ax.imshow(thresh, cmap='gray')
+            else: 
+                ax.imshow(eval(exp), cmap='gray')
+            ax.set_axis_off()
+            ax.set_title(exp)
+        plt.subplots_adjust(wspace=0.02, hspace=0.2)
+        plt.tight_layout()
+        plt.suptitle(f'Threshold for mu = {mu:.5f} and sigma = {sigma:.5f}')
+        plt.show();
+        
+        if save: 
+            imtitle = f'{self.title.split(".")[0]}_mu_{mu:.5f}_sigma_{sigma:.5f}.png'
+            dest = os.path.join(dest_dir, imtitle)
+            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
 
 
 
@@ -493,8 +478,8 @@ class ActinImg:
                     (np.cos(theta))**2*I2a + np.sin(theta)**2*I2c - 2*np.cos(theta)*np.sin(theta)*I2b) #, dtype='uint16')
                 response_stack[count,:,:] = np.copy(response)
         else:
-            input = data[0,:,:]
-#            input = data[:,:] # use for debugging
+#            input = data[0,:,:]
+            input = data[:,:] # use for debugging
             # I2a = correlate(input, G2a, mode='nearest')
             # I2b = correlate(input, G2b, mode='nearest')
             # I2c = correlate(input, G2c, mode='nearest')
@@ -550,7 +535,7 @@ class ActinImg:
         for angle in thetas:
             results[angle] = self.steerable_gauss_2order(theta=angle, substack=substack,sigma=sigma,visualise=False,tmp=True)
         response_stack = np.array([value['response'] for key, value in results.items()])
-        response_stack = np.mean(response_stack, 0)
+        response_stack = np.min(response_stack, 0)
 
         if visualise:
             titles = [f'n_{str(n)}' for n in np.arange(substack[0],substack[1]+1)]
