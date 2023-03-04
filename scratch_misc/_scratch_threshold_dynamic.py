@@ -85,6 +85,10 @@ plt.show()
 
 
 
+import os
+import numpy as np 
+import matplotlib.pyplot as plt
+from meshure.actinimg import get_ActinImg
 from skimage.measure import profile_line
 
 
@@ -96,6 +100,24 @@ actimg = get_ActinImg('3min_FOV3_decon.tif', data_path)
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[1],visualise=False)
 actimg.z_project_min()
+rows, cols = actimg.shape
+lineprof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)], 
+                   [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
+mu, sigma = actimg.threshold_find_mu_sigma(line_prof_coords=lineprof_coords)
+
+
+actimg.threshold_preview_cases(mu, sigma, factors=[0.5,1,1.5,2])
+actimg.threshold(mu-sigma)
+actimg.visualise('manipulated', colmap='gray')
+
+im1 = actimg.manipulated_stack
+im2 = actimg.manipulated_stack
+for n, image in enumerate([im1,im2,im1-im2]):
+    ax = plt.subplot(1, 3, n+1)
+    ax.imshow(image, cmap='gray')
+    ax.set_axis_off()
+plt.show()
+
 
 
 rows, cols = actimg.shape
@@ -144,7 +166,19 @@ plt.show()
 
 
 
-
+"""  We then applied a threshold at an arbitrary low value (0.002), 
+    resulting in a binary image of the actin meshwork (fig. S3).
+    To establish the total area of the cell and of the mesh, 
+    we “filled” the binary image so that any gaps in the network were removed, 
+    and the cell was segmented throughout the whole plane. 
+    The number of pixels in the “unfilled” image and the filled image was then 
+    compared to give a percentage value of mesh density. 
+    To establish the size of the gaps in the mesh, the unfilled image was inverted, 
+    and the gaps within the mesh were characterized using the MATLAB “region props” function 
+    including the “EquivDiameter” and “Area” parameters. 
+    These parameters generated a circular area of equivalent size to the gap region 
+    and then determined the meshwork size of that specific gap as the diameter of the circle. 
+"""
 ### TRY DIFFERENT MORPHOLOGICAL OPERATIONS 
 # it appears that closing is indeed the best operation
 # the problem remains: what structure to choose.... 

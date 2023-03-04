@@ -153,3 +153,16 @@
     - invert steerable response average **OR** use an inverse filter with values `< threshold` kept (instead of `> threshold`)
         - OR use mean - st dev 
     - for inversion of response: normalise [0,1] and invert 
+- in the end use profile < mu - n*sigma (likely just mu - sigma)
+
+## 03/03 lab meeting suggestions 
+
+- [ ] try with 20 thetas 
+- [ ] ask Miruna c++
+- [ ] use two gaussians:
+    - smooth out noise
+    - make blob for cell segmentation 
+- [ ] Delete 2-3 pixel islands (using CCA)
+- [ ] Visual Studio problem not VSCode
+- FIXED CODE!! all that was missing was a minimum projection of the thetas_response_stack (instead of taking mean or maximum projection)
+
