@@ -20,7 +20,7 @@ from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dim
         - [ ] meshwork_size and meshwork_density methods
         - [ ] add voxel size attribute (i.e. resolution in z) in metadata  
         - [ ] test steerable second order filter but how?
-        - [ ! ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
+        - [ ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
         - when to return self?   
 """
 
@@ -72,6 +72,11 @@ class ActinImg:
             Adding a scale bar to images by default (provided, resolution is available).
         bar_locate : str='upper_left'
             Position of scale bar; upper left by default. 
+
+        Returns
+        -------
+        matplotlib.pyplot
+            Plot of specified slice from parent stack. 
         """
         if not isinstance(imtype, str) or not isinstance(ind, int):
             raise TypeError('imtype must be a string and ind must be an integer.')
@@ -135,6 +140,11 @@ class ActinImg:
             Adding a scale bar to images by default (provided, resolution is available).
         bar_locate : str='upper_left'
             Position of scale bar; upper left by default. 
+
+        Returns
+        -------
+        matplotlib.pyplot
+            A tiled plot of specified substack from parent stack. 
         """
         if not isinstance(imtype, str):
             raise TypeError('imtype must be a string.')
@@ -218,7 +228,14 @@ class ActinImg:
 
 
     def normalise(self): 
-        """ Normalises every frame in a z-stack (or just image) by minimum pixel intensity in that frame. 
+        """ Normalises every frame in a z-stack (or just image) by minimum pixel intensity in that frame. Resulting frames have values in range [0,1].
+
+        Returns
+        -------
+        self.manipulated_stack : np.ndarray
+            Normalised image stack. 
+        self.self.manipulated_depth : int
+            Attribute matches self.depth.
         """
         if self.depth == 1: 
             self.manipulated_stack = (self.image_stack - np.min(self.image_stack)) / np.max(self.image_stack - np.min(self.image_stack))
@@ -238,6 +255,12 @@ class ActinImg:
         substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
+        Returns
+        -------
+        self.manipulated_stack : np.ndarray
+            Minimum projection of dimensions=self.shape. 
+        self.self.manipulated_depth : int
+            Updated to 1.
         See also
         --------
         ActImg.z_project_max()
@@ -281,6 +304,12 @@ class ActinImg:
         substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
+        Returns
+        -------
+        self.manipulated_stack : np.ndarray
+            Minimum projection of dimensions=self.shape. 
+        self.self.manipulated_depth : int
+            Updated to 1.
         See also
         --------
         ActImg.z_project_min()   
@@ -319,7 +348,19 @@ class ActinImg:
 
 
     def threshold(self, threshold: float):
-        """ Returns a binary thresholded image. 
+        """ Returns a binary thresholded image.
+        Note: can be called after normalisation and  
+        ...
+        Arguments
+        ---------
+        threshold : float
+            Values below the threshold are set to 1; the rest are set to 0. 
+        Returns
+        -------
+        self.manipulated_stack : np.ndarray of ints 
+            Binary image of dimensions=self.shape. 
+        self.self.manipulated_depth : int
+            Updated to 1.
         """
         if not self._history or 'normalise' not in self._history: 
             raise ValueError('Raw data has not been normalised.')
@@ -327,16 +368,17 @@ class ActinImg:
             print('Data has not been projected in z.') #raise ValueError
         if not isinstance(threshold, float):
             raise TypeError('Threshold must be a float.')
-        # if threshold < 0 or threshold >=1: 
-        #     raise ValueError('Threshold cannot be <0 or >= 1.')
+        if threshold >=1: 
+            raise ValueError('Threshold cannot be >= 1.')
 
         self.manipulated_stack = (self.manipulated_stack < threshold).astype('int')
+        self.manipulated_depth = 1
         self._call_hist('threshold')
         return None
 
 
-    def threshold_find_mu_sigma(self, line_prof_coords=None): 
-        """ Obtains line profiles specified in boundaries line_prof_coords, returns mean and standard deviation of aggregated profile.
+    def threshold_dynamic(self, line_prof_coords=None, sigma_factor: float=1.0, return_mu_sigma: bool=False): 
+        """ Obtains line profiles (of width 5 pixels) specified in boundaries `line_prof_coords`, returns mean and standard deviation of aggregated profile.
         
         Arguments
         ---------
@@ -345,24 +387,82 @@ class ActinImg:
         
         Returns
         -------
-        (mu, sigma) : tuple of floats 
-            Mean and standard deviation of the aggregated line profiles. 
+        self.manipulated_stack : np.ndarray of ints 
+            Binary image of dimensions=self.shape. 
+        self.self.manipulated_depth : int
+            Updated to 1.
+        (mu, sigma) : tuple of floats (optional) 
+            Optionally return mean and standard deviation of the aggregated line profiles. 
+        See also
+        --------
+        ActImg._threshold_preview_cases()
         """
-        # get line profile 
+        if not self._history or 'normalise' not in self._history: 
+            raise ValueError('Raw data has not been normalised.')
+        if self._projected is None: 
+            print('Data has not been projected in z.') #raise ValueError
+        if not isinstance(sigma_factor, (float, int)): 
+            raise TypeError('sigma factor must be float or int.') 
+        if sigma_factor < 0: 
+            raise ValueError('sigma_factor must be >0.') 
+        if not isinstance(return_mu_sigma, bool):
+            raise TypeError('return_mu_sigma must be a boolean.')
+
+
+        # default profiles 
         if not line_prof_coords: 
             rows, cols = self.shape
             line_prof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)],
-                               [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
+                                [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
         line_profs = [None]*len(line_prof_coords) 
-        for n, (start, end) in enumerate(line_prof_coords): 
-            line_profs[n] = profile_line(self.manipulated_stack, start, end, linewidth=5).ravel()
 
-        all_profs = np.concatenate(line_profs).ravel() # shape (n,)
-        mu, sigma = np.mean(all_profs), np.std(all_profs)
+        try:
+            for n, (start, end) in enumerate(line_prof_coords): 
+                line_profs[n] = profile_line(self.manipulated_stack, start, end, linewidth=5).ravel()
 
-        return mu, sigma
+            all_profs = np.concatenate(line_profs).ravel() # shape (n,)
+            mu, sigma = np.mean(all_profs), np.std(all_profs)
 
-    def threshold_preview_cases(self, mu: float, sigma: float, factors=None, save: bool=False, dest_dir: str=os.getcwd()):
+            # threshold
+            self.manipulated_stack = (self.manipulated_stack < mu-sigma_factor*sigma).astype('int')
+            self._call_hist('threshold')
+            self.manipulated_depth = 1
+            
+            if return_mu_sigma:
+                return mu, sigma
+            else:
+                return None
+            
+        except: 
+            raise RuntimeError('line_prof_coords cannot be unpacked to extract line profiles.')
+        
+
+    def _threshold_preview_cases(self, mu: float, sigma: float, factors=None, max_proj_substack=None, save: bool=False, dest_dir: str=os.getcwd()):
+        """ Helper previews the outputs of several degrees of thresholding mu-factor*sigma. 
+        Note: must be applied after steerable filter. 
+
+        Arguments
+        ---------
+        mu : float
+            Mean of line profiles, optionally returned by ActinImg.threshold_dynamic()
+        sigma : 
+            Standard deviation of line profiles, optionally returned by ActinImg.threshold_dynamic()
+        factors : list of floats or ints
+            The factors where threshold = mu-factor*sigma for factor in factors
+        save : bool=False
+            Plot is displayed but not saved by default. True displays and saves plot. 
+        dest_dir : str=os.getcwd()
+            Destination where the plot is saved if save=True. 
+
+        Returns
+        -------
+        matplotlib.pyplot
+            Plots a tile comparing the minimum projection of oriented filter responses to the different thresholds.
+
+        See also
+        --------
+        ActImg.threshold_dynamic()
+        """
         if not isinstance(mu, float) or not isinstance(sigma, float):
             raise TypeError('Mu and sigma must both be floats.')
         try: 
@@ -370,9 +470,16 @@ class ActinImg:
         except: 
             raise TypeError('Factor must be array-like.')
         img = self.manipulated_stack.copy()
+        # create a copy 
+        tmp_actimg = ActinImg(self.image_stack, title='tmp',shape=self.shape, depth=self.depth, deconvolved=True,
+                              resolution=self.resolution, res_units=self.res_units, meta=self.meta)
+        tmp_actimg.normalise()
+        tmp_actimg.z_project_max(max_proj_substack)
+        img_max_proj = tmp_actimg.manipulated_stack.copy()
 
         threshold_variants = ['img']
         threshold_variants.extend([f'img < mu-{factor}*sigma' for factor in factors])
+        plt_titles = ['img'] + [f'img < $\\mu$-{factor:.2f}*$\\sigma$' for factor in factors]
 
 
         figrows, figcols = get_fig_dims(len(threshold_variants))
@@ -381,19 +488,22 @@ class ActinImg:
             if 'mu' in exp:
                 thresh = eval(exp)
                 ax.imshow(thresh, cmap='gray')
+                ax.imshow(img_max_proj, cmap='inferno', alpha=0.7)
+                ax.set_title(plt_titles[n])
             else: 
                 ax.imshow(eval(exp), cmap='gray')
+                ax.set_title('Response')
             ax.set_axis_off()
-            ax.set_title(exp)
         plt.subplots_adjust(wspace=0.02, hspace=0.2)
         plt.tight_layout()
-        plt.suptitle(f'Threshold for mu = {mu:.5f} and sigma = {sigma:.5f}')
-        plt.show();
+        plt.suptitle(f'Threshold for $\mu$ = {mu:.5f} and $\sigma$ = {sigma:.5f}')
         
         if save: 
             imtitle = f'{self.title.split(".")[0]}_mu_{mu:.5f}_sigma_{sigma:.5f}.png'
             dest = os.path.join(dest_dir, imtitle)
             plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+        else: 
+            plt.show();
 
 
 
@@ -408,7 +518,7 @@ class ActinImg:
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
         sigma : float=2.0
-            The standard deviation of the Gaussian.
+            The standard deviation of the second-order Gaussian kernel.
         theta : float=0.
             The steerable filter orientation, in degrees. 
         tmp : bool=False
@@ -416,6 +526,12 @@ class ActinImg:
 
         Returns
         -------
+        self.manipulated_stack : np.ndarray 
+            An n-dimensional array of oriented filter responses for ever . 
+        self.self.manipulated_depth : int
+            Updated to according to number of slices processed (specified by `substack`).
+        self.manipulated_substack_inds : list=substack
+            Substack inds are updated to yield correct visualisation using ActImg.visualise_stack() method
         dictionary (optional)
             Dictionary maps the response of the theta-rotated derivative and the oriented filter. 
         """
@@ -478,8 +594,8 @@ class ActinImg:
                     (np.cos(theta))**2*I2a + np.sin(theta)**2*I2c - 2*np.cos(theta)*np.sin(theta)*I2b) #, dtype='uint16')
                 response_stack[count,:,:] = np.copy(response)
         else:
-#            input = data[0,:,:]
-            input = data[:,:] # use for debugging
+            input = data[0,:,:]
+            # input = data[:,:] # use for debugging
             # I2a = correlate(input, G2a, mode='nearest')
             # I2b = correlate(input, G2b, mode='nearest')
             # I2c = correlate(input, G2c, mode='nearest')
@@ -515,26 +631,39 @@ class ActinImg:
             return None
 
 
-    def steerable_gauss_2order_thetas(self, thetas, sigma: float=2.0, substack=None, visualise=False):
-        """ Applies steerable second order Gaussian filters oriented in multiple directions (specified by `thetas`). 
+    def steerable_gauss_2order_thetas(self, thetas, sigma: float=2.0, substack=None, visualise=False, return_responses=False):
+        """ Applies steerable second order Gaussian filters oriented in multiple directions (specified by `thetas`). For every frame, the minimum projection of the oriented filter responses is returned in an n-dimensional array. 
         ...
         Arguments
         ---------
         thetas : list
-            A list of floats or integers, specifying the directions (in degrees) in which the Gaussian should be steered.
+            A list of floats or integers, specifying the directions (in degrees) in which the second-order Gaussian should be steered.
         sigma : float=2.0
             The standard deviation of the Gaussian.
         substack : list
             A list of length=2, specifying the range [start_index, finish_index] of slices to perform the operation on.
             Note: indexing is from 1 to `n_frames` in image stack. 
+        visualise : bool=False
+            Optionally, visualise the response stack. 
         Returns 
         -------
-        TODO: finish docstrings, input validation, visualisation vmax/vmin
+        self.manipulated_stack : np.ndarray 
+            An n-dimensional array (where n is determined by `substacks`), where each frame is the minimum projection of the oriented filter responses. 
+        self.self.manipulated_depth : int
+            Updated to according to number of slices processed (specified by `substack`).
+        self.manipulated_substack_inds : list=substack
+            Substack inds are updated to yield correct visualisation using ActImg.visualise_stack() method
+        See also
+        --------
+        ActinImg.steerable_gauss_2order()
+        TODO: input validation, visualisation vmax/vmin
         """
         results = dict.fromkeys(thetas)
         for angle in thetas:
             results[angle] = self.steerable_gauss_2order(theta=angle, substack=substack,sigma=sigma,visualise=False,tmp=True)
-        response_stack = np.array([value['response'] for key, value in results.items()])
+        response_stack = np.array([value['response'] for _, value in results.items()])
+        if return_responses: 
+            responses_out = response_stack.copy()
         response_stack = np.min(response_stack, 0)
 
         if visualise:
@@ -558,11 +687,29 @@ class ActinImg:
         self.manipulated_substack_inds = substack
         theta_string = f'+{thetas[0]}+{thetas[-1]}+{len(thetas)}'
         self._call_hist('steerable_gauss_2order_thetas')#+theta_string)
-        return None 
+        if return_responses: 
+            return responses_out
+        else:
+            return None 
 
-    def _get_oriented_filter(self, theta, sigma):
-        """ Helper method; 
-        TODO: finish docstrings, input validation
+    def _get_oriented_filter(self, theta: float, sigma: float):
+        """ Helper method; returns a second-order Gaussian filter with sigma=`sigma` oriented clockwise by angl=`theta`. 
+        ...
+        Arguments
+        ---------
+        theta : float=0.
+            The steerable filter orientation, in degrees. 
+        sigma : float=2.0
+            The standard deviation of the second-order Gaussian kernel.
+        Returns
+        -------
+        oriented_filter : np.ndarray
+            The kernel of an oriented/steered second-order Gaussian. 
+        See also
+        --------
+        ActinImg.steerable_gauss_2order()
+        ActinImg._visualise_oriented_filters()
+        TODO: input validation
         """
         #### Separable filter kernels
         # Gaussian kernel mesh grid  
@@ -580,14 +727,39 @@ class ActinImg:
         oriented_filter = np.array((np.cos(theta))**2*G2a + np.sin(theta)**2*G2c - 2*np.cos(theta)*np.sin(theta)*G2b)
         return oriented_filter 
     
-    def _visualise_oriented_filters(self, thetas, sigma, save: bool=False, dest_dir: str=os.getcwd()): 
-        """ Helper method; 
-        TODO: finish docstrings, input validation, visualisation vmax/vmin
+    def _visualise_oriented_filters(self, thetas: list, sigma: float, save: bool=False, dest_dir: str=os.getcwd(), return_filters=False): 
+        """ Helper method; tile of plots shows the oriented filters; optionally, the plot can be saved or the oriented filters can be returned as a dictionary.
+        ...
+        Arguments
+        --------- 
+        thetas : list
+            A list of floats or integers, specifying the directions (in degrees) in which the second-order Gaussian should be steered.
+        sigma : float=2.0
+            The standard deviation of the Gaussian.
+        save : bool=False
+            Plot is displayed but not saved by default. True displays and saves plot. 
+        dest_dir : str=os.getcwd()
+            Destination where the plot is saved if save=True. 
+        return_filters : bool=False
+            Optionally, return the oriented filter as a dictionary. 
+        Returns
+        -------
+        matplotlib.pyplot
+            Plot of specified slice from parent stack.
+        png (optional)
+            A png of the plot can be saved to the `dest_dir`. 
+        all_filters_dict : dictionary (optional)
+            A dictionary which maps all `thetas` to oriented filters.  
+        See also
+        --------
+        ActinImg.steerable_gauss_2order()
+        ActinImg._get_oriented_filter()
+        TODO: input validation, visualisation vmax/vmin
         """
         all_filters = []
         for angle in thetas:
             all_filters.append(self._get_oriented_filter(theta=angle,sigma=sigma))
-        titles = [f'theta_{str(n)}' for n in thetas]
+        titles = [f'$\\theta$ = {n:.2f}' for n in thetas]
         figrows, figcols = get_fig_dims(len(thetas)) 
         for n, (image, title) in enumerate(zip(np.rollaxis(np.asarray(all_filters), 0), titles)):
             ax = plt.subplot(figrows,figcols,n+1)
@@ -601,9 +773,17 @@ class ActinImg:
             dest = os.path.join(dest_dir, imtitle)
             plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.close()
-        else:
-            plt.show();
+        plt.show();
+        if return_filters:
+            all_filters_dict = dict.fromkeys(thetas)
+            for angle, filter in zip(thetas, all_filters):
+                all_filters_dict[angle] = filter 
+            return all_filters_dict
+        else: 
+            return None
 
+        
+            
 
     def meshwork_density(self):
         """ Accepts a binary image and returns the meshwork density.
@@ -628,6 +808,10 @@ class ActinImg:
 
     def nuke(self):
         """ Restores an ActImg instance to it's pre-manipulated state.
+        Returns
+        -------
+        self : ActinImg
+            Returns the same instance of ActinImg but without any manipulation history. 
         """
         self.manipulated_stack = None
         self.manipulated_depth = 0
@@ -639,6 +823,10 @@ class ActinImg:
 
     def _call_hist(self, action):
         """ Helper records performed manipulations (called methods) in a list.
+        Returns
+        -------
+        self._history : list of str
+            A list of strings which specify the processing steps applied (firstt to latest).  
         """
         if self._history is None: 
             self._history = []
@@ -649,6 +837,16 @@ class ActinImg:
 
 def get_ActinImg(image_name: str, image_dir: str):
     """ Creates an ActinImg instance. 
+    Arguments
+    ---------
+    image_name : str
+        A string specifies the name of the image contained in image_dir. Used for instance `title` attribute.
+    image_dir : str
+        The root directory where `image_name` is contained. 
+    Returns
+    -------
+    ActinImg
+        An instance of the ActinImg class.   
     """
     img, title = get_image_stack(os.path.join(image_dir, image_name), verbose=False)
     shape = img[0].shape
