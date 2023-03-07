@@ -98,26 +98,31 @@ os.listdir(data_path)
 # CARs 3min_FOV3_decon.tif ## 1 and ??? 
 actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) 
 actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[1],visualise=False)
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0, 180, 20),sigma=2,substack=[1,3],visualise=False)
 actimg.z_project_min()
 rows, cols = actimg.shape
 lineprof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)], 
                    [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
-mu, sigma = actimg.threshold_find_mu_sigma(line_prof_coords=lineprof_coords)
 
 
-actimg.threshold_preview_cases(mu, sigma, factors=[0.5,1,1.5,2])
-actimg.threshold(mu-sigma)
+#actimg.threshold_preview_cases(mu, sigma, factors=[0.5,1,1.5,2])
+mu, sigma = actimg.threshold_dynamic(sigma_factor=0, return_mu_sigma=True)
 actimg.visualise('manipulated', colmap='gray')
+actimg.visualise_stack('original', [1,3])
 
-im1 = actimg.manipulated_stack
-im2 = actimg.manipulated_stack
+actimg.nuke()
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0, 180, 20),sigma=2,substack=[1,3],visualise=False)
+actimg.z_project_min()
+actimg._threshold_preview_cases(mu, sigma, factors=[0,0.25,0.5,1,1.25])
+
+#im1 = actimg.manipulated_stack
+#im2 = actimg.manipulated_stack
 for n, image in enumerate([im1,im2,im1-im2]):
     ax = plt.subplot(1, 3, n+1)
     ax.imshow(image, cmap='gray')
     ax.set_axis_off()
 plt.show()
-
 
 
 rows, cols = actimg.shape
