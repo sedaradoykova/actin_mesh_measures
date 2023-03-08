@@ -67,7 +67,7 @@ class ActinImg:
         dest_dir : str=os.getcwd()
             Directory to save plot in (defaults to current working directory) 
         colmap : str='inferno'
-            Change color map (passed to cmap argument) in matplotlib.pyplot.
+            Change color map (passed to `cmap` argument) in matplotlib.pyplot. Perceptually uniform colour map used by default.
         scale_bar : bool=True
             Adding a scale bar to images by default (provided, resolution is available).
         bar_locate : str='upper_left'
@@ -135,7 +135,7 @@ class ActinImg:
         dest_dir : str=os.getcwd()
             Directory to save plot in (defaults to current working directory) 
         colmap : str='inferno'
-            Change color map (passed to cmap argument) in matplotlib.pyplot.
+            Change color map (passed to `cmap` argument) in matplotlib.pyplot. Perceptually uniform colour map used by default.
         scale_bar : bool=True
             Adding a scale bar to images by default (provided, resolution is available).
         bar_locate : str='upper_left'
@@ -483,13 +483,13 @@ class ActinImg:
 
 
         figrows, figcols = get_fig_dims(len(threshold_variants))
-        for n, exp in enumerate(threshold_variants):
+        for n, (exp, title) in enumerate(zip(threshold_variants, plt_titles)):
             ax = plt.subplot(figrows,figcols,n+1)
             if 'mu' in exp:
                 thresh = eval(exp)
                 ax.imshow(thresh, cmap='gray')
-                ax.imshow(img_max_proj, cmap='inferno', alpha=0.7)
-                ax.set_title(plt_titles[n])
+                ax.imshow(img_max_proj, cmap='gray', alpha=0.7)
+                ax.set_title(title)
             else: 
                 ax.imshow(eval(exp), cmap='gray')
                 ax.set_title('Response')

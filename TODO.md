@@ -157,12 +157,34 @@
 
 ## 03/03 lab meeting suggestions 
 
-- [ ] try with 20 thetas 
-- [ ] ask Miruna c++
-- [ ] use two gaussians:
+- [X] try with 20 thetas
+    - slight differences are caught with more thetas... tradeoff between sampling enough directions in [0,180] and computational efficiency
+- [-] ask Miruna c++
+- [-] use two gaussians:
     - smooth out noise
+        - [X] this has yielded some interesting  
     - make blob for cell segmentation 
+        - upon reflection this might not be great because we might get different cell areas - but i have not tried it... 
 - [ ] Delete 2-3 pixel islands (using CCA)
+    - this may or may not be necessary further down the line... 
 - [ ] Visual Studio problem not VSCode
 - FIXED CODE!! all that was missing was a minimum projection of the thetas_response_stack (instead of taking mean or maximum projection)
 
+## Things tried after 03/03
+
+- [X] dynamic thresholding - compare line profiles to response histogram mu/sigmas 
+- [X] color code by maximum (actually minimum) response orientation
+- [X] make plots/gifs which explain how gaussian detects edges (orientations) and minimum-projection highlights them 
+- [ ] get mesh size and density 
+- [ ] fix/integrate pipeline 
+- [ ] clean up code graveyard... it's starting to get out of hand
+
+## Other considerations 
+
+- [ ] will i have to do all the paint fun? 
+- [ ] how will i write everything up? 
+
+## Other features
+
+- [ ] parallelise? 
+- [ ] command line interfaces?

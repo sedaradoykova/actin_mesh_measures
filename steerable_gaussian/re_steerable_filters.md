@@ -64,4 +64,8 @@ There is a handful of pdfs in the ./reading dir.
     - > The steerableDetector function was applied to reconstructed SIM images and a rastered STORM image with a fourth order filter. The Euclidean minimum spanning tree, Delaunay triangulation, and Voronoi tessellation of SMLM STORM data were computed using the Computational Geometry functions and the Bioinformatics Toolbox of MATLAB after loading the molecule list from Nikon Elements. T
 - [Texture classification filters (group, Oxford)](https://www.robots.ox.ac.uk/~vgg/research/texclass/filters.html)
 
+## Other
+
+- [Scalespace or Differential Geometry](https://www.vanosta.be/scalespace.htm)
+
 
