@@ -38,6 +38,7 @@ class ActinImg:
     manipulated_depth: int=0
     manipulated_substack_inds = None
 
+
     def __post_init__(self):
         if not isinstance(self.image_stack, np.ndarray) and not isinstance(self.image_stack, tuple):
             raise TypeError("Input data must be a numpy array or tuple of arrays.")
@@ -47,6 +48,7 @@ class ActinImg:
             raise TypeError("Deconvolved must be a boolean.")
         self._projected = None
         self._history = None
+        self.estimated_parameters = {}
 
 
     def visualise(
@@ -427,7 +429,9 @@ class ActinImg:
             self.manipulated_stack = (self.manipulated_stack < mu-sigma_factor*sigma).astype('int')
             self._call_hist('threshold')
             self.manipulated_depth = 1
-            
+            self.estimated_parameters['lines_profile_mu'] = mu 
+            self.estimated_parameters['lines_profile_sigma'] = sigma
+
             if return_mu_sigma:
                 return mu, sigma
             else:
@@ -437,15 +441,15 @@ class ActinImg:
             raise RuntimeError('line_prof_coords cannot be unpacked to extract line profiles.')
         
 
-    def _threshold_preview_cases(self, mu: float, sigma: float, factors=None, max_proj_substack=None, save: bool=False, dest_dir: str=os.getcwd()):
+    def _threshold_preview_cases(self, mu: float=None, sigma: float=None, factors=None, max_proj_substack=None, save: bool=False, dest_dir: str=os.getcwd()):
         """ Helper previews the outputs of several degrees of thresholding mu-factor*sigma. 
         Note: must be applied after steerable filter. 
 
         Arguments
         ---------
-        mu : float
+        mu : float, optional
             Mean of line profiles, optionally returned by ActinImg.threshold_dynamic()
-        sigma : 
+        sigma : float, optional
             Standard deviation of line profiles, optionally returned by ActinImg.threshold_dynamic()
         factors : list of floats or ints
             The factors where threshold = mu-factor*sigma for factor in factors
@@ -465,6 +469,11 @@ class ActinImg:
         """
         if not isinstance(mu, float) or not isinstance(sigma, float):
             raise TypeError('Mu and sigma must both be floats.')
+        try: 
+            self.estimated_parameters['lines_profile_mu'] is not None
+            self.estimated_parameters['lines_profile_sigma'] is not None
+        except KeyError:
+            raise AttributeError('ActImg.estimated_parameters mu and sigma not found, please specify (mu, sigma) or call `ActImg.threshold_dynamic()`.')
         try: 
             factors = np.array(factors)
         except: 
@@ -785,18 +794,30 @@ class ActinImg:
         
             
 
-    def meshwork_density(self):
+    def meshwork_density(self, verbose=False):
         """ Accepts a binary image and returns the meshwork density.
         Uses the `skimage.measure()` function.  """
         if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
             raise ValueError('Input image is not binary.')
         
-        filled_image = morphology.binary_fill_holes(self.manipulated_stack)
-        difference = filled_image - self.manipulated_stack
-        n_holes = np.sum(difference)
-        holes_percentage = n_holes*100 / (self.shape[0]*self.shape[1])
+        # prepare images used 
+        img = self.manipulated_stack.copy()
+        img_inverted = (img==0).astype('int')
+
+        # close any holes with a 2x2 matrix of ones 
+        closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
+        # fill any holes in closed image
+        filled_img = morphology.binary_fill_holes(closed_img)
+
+        mesh_density = ( np.sum(filled_img) - np.sum(img) )*100 / np.sum(filled_img)
+        if verbose: 
+            print(f'The percentage mesh density is  {mesh_density:.2f} %')
+            print('Defined as the difference between the filled and unfilled mask.')
+
+        self.estimated_parameters['mesh_density_percentage']
         self._call_hist('meshwork_density')
-        raise NotImplementedError
+
+        return None
 
 
 
