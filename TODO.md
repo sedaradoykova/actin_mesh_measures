@@ -183,6 +183,8 @@
 
 - [ ] will i have to do all the paint fun? 
 - [ ] how will i write everything up? 
+- [ ] original steerable filter paper uses **local contrast enhancement** (subtracting the absolute value of the blurred image)
+    - tried this but it does not seem to change anything... 
 
 ## Other features
 
