@@ -68,4 +68,8 @@ There is a handful of pdfs in the ./reading dir.
 
 - [Scalespace or Differential Geometry](https://www.vanosta.be/scalespace.htm)
 
+## Local contrast enhancement 
+
+- used in original steerable filter enhancement 
+- [local contrast enhancement](https://www.cambridgeincolour.com/tutorials/local-contrast-enhancement.htm#:~:text=Local%20contrast%20enhancement%20works%20similarly,mapped%20when%20sharpening%20an%20image.)
 
