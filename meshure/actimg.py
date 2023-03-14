@@ -1,9 +1,10 @@
-import os, cv2, pickle, warnings, scipy.stats
+import os, cv2, pickle, json, warnings, scipy.stats
 import numpy as np 
 import pandas as pd
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from matplotlib_scalebar.scalebar import ScaleBar
+from scipy import stats
 from scipy.optimize import curve_fit
 from scipy.ndimage import correlate, morphology
 from skimage import measure 
@@ -380,21 +381,24 @@ class ActImg:
         return None
 
 
-    def threshold_dynamic(self, line_prof_coords=None, sigma_factor: float=1.0, return_mu_sigma: bool=False): 
+    def threshold_dynamic(self, std_dev_factor: float=0.0, return_mean_std_dev: bool=False, line_prof_coords=None): 
         """ Obtains line profiles (of width 5 pixels) specified in boundaries `line_prof_coords`, returns mean and standard deviation of aggregated profile.
         
         Arguments
         ---------
+        std_dev_dactor : float=0.0
+            ???
+        return_mean_std_dev : bool=False
+            ??? 
         line_prof_coords : nested list of tuples 
             List of tuples [[start, end], ...] where start = (start_row, start_col) and end = (end_row, end_col) specify the start and end point of the profile, respectively. 
-        
         Returns
         -------
         self.manipulated_stack : np.ndarray of ints 
             Binary image of dimensions=self.shape. 
         self.self.manipulated_depth : int
             Updated to 1.
-        (mu, sigma) : tuple of floats (optional) 
+        (mean, std_dev) : tuple of floats (optional) 
             Optionally return mean and standard deviation of the aggregated line profiles. 
         See also
         --------
@@ -404,14 +408,30 @@ class ActImg:
             raise ValueError('Raw data has not been normalised.')
         if self._projected is None: 
             print('Data has not been projected in z.') #raise ValueError
-        if not isinstance(sigma_factor, (float, int)): 
-            raise TypeError('sigma factor must be float or int.') 
-        if sigma_factor < 0: 
-            raise ValueError('sigma_factor must be >0.') 
-        if not isinstance(return_mu_sigma, bool):
-            raise TypeError('return_mu_sigma must be a boolean.')
+        if not isinstance(std_dev_factor, (float, int)): 
+            raise TypeError('`std_dev_factor` must be float or int.') 
+        if std_dev_factor < 0: 
+            raise ValueError('`std_dev_factor` must be >=0.') 
+        if not isinstance(return_mean_std_dev, bool):
+            raise TypeError('`return_mean_st_dev` must be a boolean.')
+
+        self._aggregate_line_profiles(line_prof_coords=None)
+        mean, std_dev = self.estimated_parameters['aggregated_line_profiles'].values()
+
+        # threshold is 'inverse' i.e. 1 if value < threshold else 0    
+        self.manipulated_stack = (self.manipulated_stack < mean-std_dev_factor*std_dev).astype('int')
+        self._call_hist('threshold')
+        self.manipulated_depth = 1
 
 
+        if return_mean_std_dev:
+            return mean, std_dev 
+        else:
+            return None
+            
+    
+
+    def _aggregate_line_profiles(self, line_prof_coords=None, return_mean_st_dev: bool=False):
         # default profiles 
         if not line_prof_coords: 
             rows, cols = self.shape
@@ -424,36 +444,29 @@ class ActImg:
                 line_profs[n] = profile_line(self.manipulated_stack, start, end, linewidth=5).ravel()
 
             all_profs = np.concatenate(line_profs).ravel() # shape (n,)
-            mu, sigma = np.mean(all_profs), np.std(all_profs)
+            mean, std_dev = np.mean(all_profs), np.std(all_profs)
+            self.estimated_parameters['aggregated_line_profiles'] = {'mean': mean, 'std_dev': std_dev} 
 
-            # threshold
-            self.manipulated_stack = (self.manipulated_stack < mu-sigma_factor*sigma).astype('int')
-            self._call_hist('threshold')
-            self.manipulated_depth = 1
-            self.estimated_parameters['lines_profile_mu'] = mu 
-            self.estimated_parameters['lines_profile_sigma'] = sigma
-
-            if return_mu_sigma:
-                return mu, sigma
+            if return_mean_st_dev:
+                return mean, std_dev 
             else:
                 return None
-            
         except: 
             raise RuntimeError('line_prof_coords cannot be unpacked to extract line profiles.')
-        
 
-    def _threshold_preview_cases(self, mu: float=None, sigma: float=None, factors=None, max_proj_substack=None, save: bool=False, dest_dir: str=os.getcwd()):
-        """ Helper previews the outputs of several degrees of thresholding mu-factor*sigma. 
+
+    def _threshold_preview_cases(self, mean: float=None, std_dev: float=None, factors=None, max_proj_substack=None, save: bool=False, dest_dir: str=os.getcwd()):
+        """ Helper previews the outputs of several degrees of thresholding mean-factor*std_dev. 
         Note: must be applied after steerable filter. 
 
         Arguments
         ---------
-        mu : float, optional
+        mean : float, optional
             Mean of line profiles, optionally returned by ActImg.threshold_dynamic()
-        sigma : float, optional
+        std_dev : float, optional
             Standard deviation of line profiles, optionally returned by ActImg.threshold_dynamic()
         factors : list of floats or ints
-            The factors where threshold = mu-factor*sigma for factor in factors
+            The factors where threshold = mean-factor*std_dev for factor in factors
         save : bool=False
             Plot is displayed but not saved by default. True displays and saves plot. 
         dest_dir : str=os.getcwd()
@@ -468,19 +481,23 @@ class ActImg:
         --------
         ActImg.threshold_dynamic()
         """
-        if not isinstance(mu, float) or not isinstance(sigma, float):
-            raise TypeError('Mu and sigma must both be floats.')
-        try: 
-            self.estimated_parameters['lines_profile_mu'] is not None
-            self.estimated_parameters['lines_profile_sigma'] is not None
-        except KeyError:
-            raise AttributeError('ActImg.estimated_parameters mu and sigma not found, please specify (mu, sigma) or call `ActImg.threshold_dynamic()`.')
+        if (mean and not isinstance(mean, float)) or (std_dev and not isinstance(std_dev, float)):
+            raise TypeError('Mean and std_dev must both be floats.')
+        if mean is None and std_dev is None:
+            try: 
+                self.estimated_parameters['aggregated_line_profiles'] is not None
+                mean, std_dev = self.estimated_parameters['aggregated_line_profiles'].values()
+            except KeyError:
+                self._aggregate_line_profiles(line_prof_coords=None)
+                mean, std_dev = self.estimated_parameters['aggregated_line_profiles'].values()
+                #raise AttributeError('ActImg.estimated_parameters mean and std_dev (key=`aggregated_line_profiles`) not found, please specify (mean, std_dev) or call `ActImg.threshold_dynamic()`.')
         try: 
             factors = np.array(factors)
         except: 
             raise TypeError('Factor must be array-like.')
+
         img = self.manipulated_stack.copy()
-        # create a copy 
+        # create a copy of instance for maximum projection 
         tmp_actimg = ActImg(self.image_stack, title='tmp',shape=self.shape, depth=self.depth, deconvolved=True,
                               resolution=self.resolution, res_units=self.res_units, meta=self.meta)
         tmp_actimg.normalise()
@@ -488,14 +505,14 @@ class ActImg:
         img_max_proj = tmp_actimg.manipulated_stack.copy()
 
         threshold_variants = ['img']
-        threshold_variants.extend([f'img < mu-{factor}*sigma' for factor in factors])
+        threshold_variants.extend([f'img < mean-{factor}*std_dev' for factor in factors])
         plt_titles = ['img'] + [f'img < $\\mu$-{factor:.2f}*$\\sigma$' for factor in factors]
 
 
         figrows, figcols = get_fig_dims(len(threshold_variants))
         for n, (exp, title) in enumerate(zip(threshold_variants, plt_titles)):
             ax = plt.subplot(figrows,figcols,n+1)
-            if 'mu' in exp:
+            if 'mean' in exp:
                 thresh = eval(exp)
                 ax.imshow(thresh, cmap='gray')
                 ax.imshow(img_max_proj, cmap='gray', alpha=0.7)
@@ -506,15 +523,14 @@ class ActImg:
             ax.set_axis_off()
         plt.subplots_adjust(wspace=0.02, hspace=0.2)
         plt.tight_layout()
-        plt.suptitle(f'Threshold for $\mu$ = {mu:.5f} and $\sigma$ = {sigma:.5f}')
+        plt.suptitle(f'Threshold for $\mu$ = {mean:.5f} and $\sigma$ = {std_dev:.5f}')
         
         if save: 
-            imtitle = f'{self.title.split(".")[0]}_mu_{mu:.5f}_sigma_{sigma:.5f}.png'
+            imtitle = f'{self.title.split(".")[0]}_mean_{mean:.5f}_std_dev_{std_dev:.5f}.png'
             dest = os.path.join(dest_dir, imtitle)
             plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
         else: 
             plt.show();
-
 
 
     def steerable_gauss_2order(self, substack=None, sigma: float=2.0, theta: float=0., visualise: bool=True, tmp: bool=False):
@@ -702,6 +718,7 @@ class ActImg:
         else:
             return None 
 
+
     def _get_oriented_filter(self, theta: float, sigma: float):
         """ Helper method; returns a second-order Gaussian filter with sigma=`sigma` oriented clockwise by angl=`theta`. 
         ...
@@ -737,6 +754,7 @@ class ActImg:
         oriented_filter = np.array((np.cos(theta))**2*G2a + np.sin(theta)**2*G2c - 2*np.cos(theta)*np.sin(theta)*G2b)
         return oriented_filter 
     
+
     def _visualise_oriented_filters(self, thetas: list, sigma: float, save: bool=False, dest_dir: str=os.getcwd(), return_filters=False): 
         """ Helper method; tile of plots shows the oriented filters; optionally, the plot can be saved or the oriented filters can be returned as a dictionary.
         ...
@@ -791,18 +809,27 @@ class ActImg:
             return all_filters_dict
         else: 
             return None
-
-        
             
 
     def meshwork_density(self, verbose=False):
         """ Accepts a binary image and returns the meshwork density (percentage).
-        Uses the `skimage.measure()` function.  """
+        Arguments
+        ---------
+        verbose : bool=False
+            Optionally, print out mesh density percentage and definition. 
+        Returns
+        ------
+        self.estimated_parameters['mesh_density_percentage'] : float
+            A percentage of mesh density, calculated as the difference between unfilled and filled image over the sum of the filled image. 
+        Raises
+        ------
+        ValueError
+            If the manipulated_stack is not a binary array with values [0,1].
+        """
         if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
             raise ValueError('Input image is not binary.')
         
         img = self.manipulated_stack.copy()
-
         # close any very small holes to ensure uniformity 
         closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
         # fill any holes in closed image
@@ -815,33 +842,54 @@ class ActImg:
 
         self.estimated_parameters['mesh_density_percentage'] = mesh_density
         self._call_hist('meshwork_density')
-
         return None
 
 
-
-    def meshwork_size(self):
+    def meshwork_size(self, summary: bool=False, verbose: bool=False):
         """ Accepts a binary image and returns meshwork size. 
         Uses skimage.measure.regionprops - `equivalent_diameter_area`
         'The diameter of a circle with the same area as the region.'
         Arguments
         ---------
-
+        summary : bool=False
+            Optionally, calculate 
+        verbose : bool=False
+            Optionally, print out summary statistics for mesh size. Must have `summary=True` to print.
         Returns
         -------
-
+        self.estimated_parameters['equivalent_diameters'] : pandas DataFrame
+            A numpy.ndarray containing all label equivalent_diameter_area properties from `measure.regionprops()`. 
+        self.estimated_parameters['mesh_size_summary'] : dict, optional
+            A dictionary mapping the mean, 95% CI of the mean, median, and IQR of the `equivalent_diameters` above.
+        Raises
+        ------
+        ValueError
+            If the manipulated_stack is not a binary array with values [0,1]. 
         """
-        # prepare images used 
+        if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
+            raise ValueError('Input image is not binary.')
+        
         img = self.manipulated_stack.copy()
         img_inverted = (img==0).astype('int')
-
         labels = measure.label(img_inverted)
         equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))
 
-        self.estimated_parameters['equivalent_diameters'] = equiv_diams
+        self.estimated_parameters['equivalent_diameters'] = equiv_diams.iloc[:,0].values.tolist() 
         self._call_hist('meshwork_size')
-        raise NotImplementedError
 
+        if summary: 
+            median = equiv_diams.iloc[:,0].median()
+            mean = equiv_diams.iloc[:,0].mean()
+            CI95_mean_norm_lower, CI95_mean_norm_upper = stats.norm.interval(alpha=0.95, loc=mean, scale=equiv_diams.iloc[:,0].sem())
+            Q25, Q75 = equiv_diams.iloc[:,0].quantile([0.25, 0.75])
+            self.estimated_parameters['mesh_size_summary'] = {'mean': mean, '95%_CI': [CI95_mean_norm_lower, CI95_mean_norm_upper],
+                                                              'median': median, 'IQR': [Q25, Q75]}
+        if verbose and summary: 
+            print(f'mean mesh size:        {mean:.3f}')
+            print(f'95% CI of the mean:    [{CI95_mean_norm_lower:.3f}, {CI95_mean_norm_upper:.3f}]')
+            print(f'median mesh size:      {median:.3f}')
+            print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
+        return None
 
 
     def nuke(self):
@@ -849,7 +897,7 @@ class ActImg:
         Returns
         -------
         self : ActImg
-            Returns the same instance of ActImg but without any manipulation history. 
+            Returns the same instance of ActImg but without any manipulation and history. 
         """
         self.manipulated_stack = None
         self.manipulated_depth = 0
@@ -858,6 +906,7 @@ class ActImg:
         self._history = None
         return None
     
+
     def save(self, dest_dir: str=os.getcwd()):
         """ Save ActImg object using pickle. 
         Arguments
@@ -871,11 +920,29 @@ class ActImg:
         if not os.path.exists(dest_dir):
             raise FileNotFoundError(f'Path not found: {dest_dir}')
         
-        title = 'acimg_'+self.title.split(".")[0]+'.pkl' 
+        title = 'actimg_'+self.title.split(".")[0]+'.pkl' 
         with open(os.path.join(dest_dir, title), 'wb') as f:
             pickle.dump(self, f, -1)
-
         return None
+
+
+    def save_estimated_params(self, dest_dir: str=os.getcwd()):
+        """ Saves estimated parameters in JSON format.
+        Arguments
+        ---------
+        dest_dir : str or Path
+            Path of destination where the JSON file should be saved.  
+        Rreturns
+        --------
+            A JSON file with the estimated parameters in the ActImg object.
+        """
+        json_obj = json.dumps(self.estimated_parameters)
+        file = 'actimg_params_'+self.title.split(".")[0]+'.json' 
+        with open(os.path.join(dest_dir, file), 'w') as f:
+           f.write(json_obj)
+        return None
+
+
 
 
     def _call_hist(self, action):
@@ -928,7 +995,7 @@ def load_ActImg(obj_path: str):
         An instance of the ActImg class. 
     """
     if not os.path.exists(obj_path):
-        raise FileNotFoundError(f'Path not found: {obj_path}')
+        raise FileNotFoundError(f'File not found: `{obj_path}`')
     if not obj_path.endswith('.pkl'): 
         raise TypeError(f'File extension not recognised: {obj_path.split(".")[-1]}')
     
