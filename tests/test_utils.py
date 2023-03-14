@@ -1,5 +1,5 @@
 import pytest, os
-from meshwork.utils import list_files_dir_str
+from meshure.utils import list_files_dir_str
 
 """ TODO: implement a dummy dir structure to test this on. """
 

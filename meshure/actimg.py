@@ -897,7 +897,7 @@ def get_ActImg(image_name: str, image_dir: str):
     Arguments
     ---------
     image_name : str
-        A string specifies the name of the image contained in image_dir. Used for instance `title` attribute.
+        A string specifies the name of the image contained in `image_dir`. Used for instance `title` attribute.
     image_dir : str
         The root directory where `image_name` is contained. 
     Returns
@@ -921,7 +921,7 @@ def load_ActImg(obj_path: str):
     Arguments
     ---------
     obj_path : str or Path
-        Path where ActImg object is stored in pickle format (ending with `.pkl`.) 
+        Path where ActImg object is stored in pickle format (must have the `.pkl` extension.) 
     Returns
     -------
     actimg : ActImg object 

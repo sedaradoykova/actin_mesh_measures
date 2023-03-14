@@ -1,4 +1,4 @@
-# actinmeshure: Quantify cytoskeletal actin remodelling
+# ActinMeshure: Quantify cytoskeletal actin remodelling
 
 <!-- ----
 badges to be included 
@@ -8,10 +8,10 @@ AchinMeshure is a small library of functions which aim to quantify actin remodel
 
 The library includes classes and helpers to: 
 
-- read in images and extract metadata into `ActinImg` instances
+- read in images and extract metadata into `ActImg` instances
 - manipulate, visualise, or save the images 
-- run batch analyses on entire directories with data using the `ActinImgCollection` class
-- summarise and visualise batch processing results, written into HTML files (requires Pandoc)
+- run batch analyses on entire directories with data using the `ActImgCollection` class
+- summarise and visualise batch processing results, written into HTML files (requires `Pandoc`)
 
 
 ## Installation from source 
