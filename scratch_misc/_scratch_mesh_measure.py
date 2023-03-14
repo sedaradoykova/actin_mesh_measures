@@ -197,6 +197,11 @@ plt.imshow(morphology.binary_fill_holes(binary_closing(img,structure=np.ones((2,
 
 
 
+
+import os
+from meshure.actimg import get_ActImg
+import numpy as np
+data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/sample_images_threshold")
 ## check if it works 
 actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
@@ -207,19 +212,29 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
 
-actimg.threshold_dynamic(sigma_factor=0, return_mu_sigma=False)
+
+actimg.threshold_dynamic(std_dev_factor=0, return_mean_st_dev=False)
+actimg.visualise_stack('manipulated')
+#actimg._threshold_preview_cases(factors=[0,0.25,0.5,1], max_proj_substack=[3,4])
+
 
 actimg.meshwork_density(True)
+actimg.meshwork_size(True, True)
 
-# actimg.estimated_parameters
-# actimg.meshwork_size()
+actimg.estimated_parameters.keys()
+actimg.estimated_parameters['mesh_size_summary']
+actimg.estimated_parameters['aggregated_line_profiles']
+actimg.estimated_parameters['equivalent_diameters'][0]
 
+
+actimg.save_estimated_params()
+
+
+# saving and loading actimg instances 
 actimg.save()
-from meshure.actimg import import_ActImg, ActImg
-
-act2 = import_ActImg('acimg_8min_Thurs_FOV2_decon.pkl')
+from meshure.actimg import load_ActImg, ActImg
+act2 = load_ActImg('acimg_8min_Thurs_FOV2_decon.pkl')
 type(act2)
-eval(act2)
 act2.manipulated_depth
 
 
