@@ -1,7 +1,7 @@
 import os
 import numpy as np 
 import matplotlib.pyplot as plt
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/sample_images_threshold")
@@ -14,7 +14,7 @@ planes = [1,2], [1], [3,5], [1,3], [1,3], [3,4], [1,4], [3,4]
 
 
 for (im_title, subs) in zip(all_files, planes):
-    actimg = get_ActinImg(im_title, data_path) 
+    actimg = get_ActImg(im_title, data_path) 
     actimg.normalise()
     actimg.z_project_max(substack=subs)
     actimg.visualise('manipulated', colmap='gray', save=True, dest_dir=data_path)
@@ -37,7 +37,7 @@ for (im_title, subs) in zip(all_files, planes):
 
 
 for (im_title, subs) in zip(os.listdir(data_path), planes):
-    actimg = get_ActinImg(im_title, data_path) 
+    actimg = get_ActImg(im_title, data_path) 
     actimg.normalise()
     actimg.z_project_max(substack=subs)
     #actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,visualise=False)
@@ -56,7 +56,7 @@ for (im_title, subs) in zip(os.listdir(data_path), planes):
 
 from skimage.filters import gaussian
 ## threshold raw image doesn't work 
-actimg = get_ActinImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
 # actimg.z_project_max([3,4])
 # im_og = actimg.manipulated_stack.copy()
@@ -156,7 +156,7 @@ for num_in, num_out in zip(np.unique(min_locs), np.linspace(0, 180, 31)):
     min_locs[np.where(min_locs == num_in)] = num_out
 
 # overlay with response
-actimg = get_ActinImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0, 180, 31),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
@@ -199,7 +199,7 @@ plt.imshow((np.min(flt_resp[::1,:,:], 0) < np.mean(np.min(flt_resp[::1,:,:], 0))
 
 from skimage.measure import profile_line
 
-actimg = get_ActinImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
@@ -264,7 +264,7 @@ plt.show()
 import os
 import numpy as np 
 import matplotlib.pyplot as plt
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 from scipy.ndimage import correlate, morphology, label, binary_closing
 from skimage import measure
 from skimage import morphology as skimorph
@@ -283,7 +283,7 @@ planes = [1,2], [1], [3,5], [1,3], [1,3], [3,4], [1,4], [3,4]
 # it appears that closing is indeed the best operation
 # the problem remains: what structure to choose.... 
 
-actimg = get_ActinImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
 # actimg.z_project_max([3,4])
 # im_og = actimg.manipulated_stack.copy()

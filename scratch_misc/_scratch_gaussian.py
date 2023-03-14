@@ -1,10 +1,10 @@
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 import numpy as np
 import matplotlib.pyplot as plt
 
 """ Test theta=0 and theta=30. """
 
-actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
+actimg = get_ActImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
 actimg.normalise()
 actimg.steerable_gauss_2order(theta=0,sigma=2,visualise=False)
 np.max(actimg.manipulated_stack) # cv2 and scipy 0.18660 vs matlab 0.1865   V
@@ -14,7 +14,7 @@ np.mean(actimg.manipulated_stack) # cv2 and scipy -2.58174e-05 vs matlab -2.5817
 np.sum(actimg.manipulated_stack > 0) # scipy 213852?? cv2 208343 vs matlab 177882
 plt.hist(actimg.manipulated_stack.ravel());plt.show();
 
-actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
+actimg = get_ActImg('testUTR_3miFRIifov1_01.tif', 'actin_meshwork_analysis/meshwork/test_data/')
 actimg.normalise()
 actimg.steerable_gauss_2order(theta=30,sigma=2,visualise=False)
 np.max(actimg.manipulated_stack) # cv2 .17327 vs matlab 0.1733   V
@@ -33,7 +33,7 @@ could it be better to simply take max along axis 0 to get strongest response out
 """
 
 
-actimg = get_ActinImg('3min_FOV3_decon.tif', 'actin_meshwork_analysis/process_data/sample_data/CARs')
+actimg = get_ActImg('3min_FOV3_decon.tif', 'actin_meshwork_analysis/process_data/sample_data/CARs')
 actimg._visualise_oriented_filters(np.arange(0,360,15),2)
 
 actimg.nuke()
@@ -166,7 +166,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from tifffile import imread
 from scipy import io
-from meshure._steerable_gaussian_debugging import steerable_gauss_2order
+from actin_meshwork_analysis.scratch_misc._steerable_gaussian_debugging import steerable_gauss_2order
 
 """- run steerable filter in matlab on an actin image and see output  
 """

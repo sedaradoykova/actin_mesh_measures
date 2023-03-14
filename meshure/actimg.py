@@ -1,12 +1,13 @@
-import os, cv2, warnings
+import os, cv2, pickle, warnings, scipy.stats
 import numpy as np 
+import pandas as pd
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
 from matplotlib_scalebar.scalebar import ScaleBar
-import scipy.stats
 from scipy.optimize import curve_fit
 from scipy.ndimage import correlate, morphology
+from skimage import measure 
 from skimage.measure import profile_line
-from dataclasses import dataclass
 from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
 
 
@@ -24,8 +25,8 @@ from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dim
         - when to return self?   
 """
 
-@dataclass()
-class ActinImg:
+@dataclass(repr=True)
+class ActImg:
     image_stack: tuple or np.ndarray
     title: str
     shape: tuple=None
@@ -448,9 +449,9 @@ class ActinImg:
         Arguments
         ---------
         mu : float, optional
-            Mean of line profiles, optionally returned by ActinImg.threshold_dynamic()
+            Mean of line profiles, optionally returned by ActImg.threshold_dynamic()
         sigma : float, optional
-            Standard deviation of line profiles, optionally returned by ActinImg.threshold_dynamic()
+            Standard deviation of line profiles, optionally returned by ActImg.threshold_dynamic()
         factors : list of floats or ints
             The factors where threshold = mu-factor*sigma for factor in factors
         save : bool=False
@@ -480,7 +481,7 @@ class ActinImg:
             raise TypeError('Factor must be array-like.')
         img = self.manipulated_stack.copy()
         # create a copy 
-        tmp_actimg = ActinImg(self.image_stack, title='tmp',shape=self.shape, depth=self.depth, deconvolved=True,
+        tmp_actimg = ActImg(self.image_stack, title='tmp',shape=self.shape, depth=self.depth, deconvolved=True,
                               resolution=self.resolution, res_units=self.res_units, meta=self.meta)
         tmp_actimg.normalise()
         tmp_actimg.z_project_max(max_proj_substack)
@@ -664,7 +665,7 @@ class ActinImg:
             Substack inds are updated to yield correct visualisation using ActImg.visualise_stack() method
         See also
         --------
-        ActinImg.steerable_gauss_2order()
+        ActImg.steerable_gauss_2order()
         TODO: input validation, visualisation vmax/vmin
         """
         results = dict.fromkeys(thetas)
@@ -716,8 +717,8 @@ class ActinImg:
             The kernel of an oriented/steered second-order Gaussian. 
         See also
         --------
-        ActinImg.steerable_gauss_2order()
-        ActinImg._visualise_oriented_filters()
+        ActImg.steerable_gauss_2order()
+        ActImg._visualise_oriented_filters()
         TODO: input validation
         """
         #### Separable filter kernels
@@ -761,8 +762,8 @@ class ActinImg:
             A dictionary which maps all `thetas` to oriented filters.  
         See also
         --------
-        ActinImg.steerable_gauss_2order()
-        ActinImg._get_oriented_filter()
+        ActImg.steerable_gauss_2order()
+        ActImg._get_oriented_filter()
         TODO: input validation, visualisation vmax/vmin
         """
         all_filters = []
@@ -795,16 +796,14 @@ class ActinImg:
             
 
     def meshwork_density(self, verbose=False):
-        """ Accepts a binary image and returns the meshwork density.
+        """ Accepts a binary image and returns the meshwork density (percentage).
         Uses the `skimage.measure()` function.  """
         if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
             raise ValueError('Input image is not binary.')
         
-        # prepare images used 
         img = self.manipulated_stack.copy()
-        img_inverted = (img==0).astype('int')
 
-        # close any holes with a 2x2 matrix of ones 
+        # close any very small holes to ensure uniformity 
         closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
         # fill any holes in closed image
         filled_img = morphology.binary_fill_holes(closed_img)
@@ -814,7 +813,7 @@ class ActinImg:
             print(f'The percentage mesh density is  {mesh_density:.2f} %')
             print('Defined as the difference between the filled and unfilled mask.')
 
-        self.estimated_parameters['mesh_density_percentage']
+        self.estimated_parameters['mesh_density_percentage'] = mesh_density
         self._call_hist('meshwork_density')
 
         return None
@@ -822,6 +821,24 @@ class ActinImg:
 
 
     def meshwork_size(self):
+        """ Accepts a binary image and returns meshwork size. 
+        Uses skimage.measure.regionprops - `equivalent_diameter_area`
+        'The diameter of a circle with the same area as the region.'
+        Arguments
+        ---------
+
+        Returns
+        -------
+
+        """
+        # prepare images used 
+        img = self.manipulated_stack.copy()
+        img_inverted = (img==0).astype('int')
+
+        labels = measure.label(img_inverted)
+        equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))
+
+        self.estimated_parameters['equivalent_diameters'] = equiv_diams
         self._call_hist('meshwork_size')
         raise NotImplementedError
 
@@ -831,14 +848,33 @@ class ActinImg:
         """ Restores an ActImg instance to it's pre-manipulated state.
         Returns
         -------
-        self : ActinImg
-            Returns the same instance of ActinImg but without any manipulation history. 
+        self : ActImg
+            Returns the same instance of ActImg but without any manipulation history. 
         """
         self.manipulated_stack = None
         self.manipulated_depth = 0
         self.manipulated_substack_inds = None
         self._projected = None
         self._history = None
+        return None
+    
+    def save(self, dest_dir: str=os.getcwd()):
+        """ Save ActImg object using pickle. 
+        Arguments
+        ---------
+        dest_dir : str or Path
+            Path where the ActImg object should be saved in `.pkl` format.   
+        Returns
+        -------
+            A pickle file (`.pkl`) with original image title in filename. 
+        """
+        if not os.path.exists(dest_dir):
+            raise FileNotFoundError(f'Path not found: {dest_dir}')
+        
+        title = 'acimg_'+self.title.split(".")[0]+'.pkl' 
+        with open(os.path.join(dest_dir, title), 'wb') as f:
+            pickle.dump(self, f, -1)
+
         return None
 
 
@@ -856,8 +892,8 @@ class ActinImg:
 
 
 
-def get_ActinImg(image_name: str, image_dir: str):
-    """ Creates an ActinImg instance. 
+def get_ActImg(image_name: str, image_dir: str):
+    """ Creates an ActImg instance. 
     Arguments
     ---------
     image_name : str
@@ -866,8 +902,8 @@ def get_ActinImg(image_name: str, image_dir: str):
         The root directory where `image_name` is contained. 
     Returns
     -------
-    ActinImg
-        An instance of the ActinImg class.   
+    ActImg
+        An instance of the ActImg class.   
     """
     img, title = get_image_stack(os.path.join(image_dir, image_name), verbose=False)
     shape = img[0].shape
@@ -877,6 +913,25 @@ def get_ActinImg(image_name: str, image_dir: str):
     devonv = True if 'deconv' in image_name else False
     meta = get_meta(os.path.join(image_dir, image_name))
     resolut = get_resolution(meta)
-    return ActinImg(np.asarray(img), title, shape, depth, devonv, resolut, meta)
+    return ActImg(np.asarray(img), title, shape, depth, devonv, resolut, meta)
 
     
+def load_ActImg(obj_path: str):
+    """ Imports a saved ActImg object. 
+    Arguments
+    ---------
+    obj_path : str or Path
+        Path where ActImg object is stored in pickle format (ending with `.pkl`.) 
+    Returns
+    -------
+    actimg : ActImg object 
+        An instance of the ActImg class. 
+    """
+    if not os.path.exists(obj_path):
+        raise FileNotFoundError(f'Path not found: {obj_path}')
+    if not obj_path.endswith('.pkl'): 
+        raise TypeError(f'File extension not recognised: {obj_path.split(".")[-1]}')
+    
+    with open(obj_path, 'rb') as f:
+        actimg = pickle.load(f)
+    return actimg 

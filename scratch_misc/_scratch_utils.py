@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.measure import profile_line
 from matplotlib_scalebar.scalebar import ScaleBar
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 
 def plt_threshold_diagnostic(actimg, linprof_original):
     linprof = linprof_original[np.argwhere(linprof_original>0)]
@@ -79,7 +79,7 @@ if '__name__' == '__main__':
     data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
     os.listdir(data_path)
 
-    actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+    actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
     actimg.normalise()
     actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
     actimg.z_project_min()

@@ -1,13 +1,13 @@
 import os
 import numpy as np 
 import matplotlib.pyplot as plt
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
 os.listdir(data_path)
 # Untr 3min_Fri_FOV2_decon.tif ## 1,3 and 6,8
 # CARs 3min_FOV3_decon.tif ## 1 and ??? 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) 
+actimg = get_ActImg('3min_FOV3_decon.tif', data_path) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[1],visualise=False)
 actimg.z_project_min()
@@ -51,7 +51,7 @@ plt.suptitle('Mu and sigma values against number of bins used for fit')
 plt.show()
 
 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
 actimg.z_project_min()
@@ -88,7 +88,7 @@ plt.show()
 import os
 import numpy as np 
 import matplotlib.pyplot as plt
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 from skimage.measure import profile_line
 
 
@@ -96,7 +96,7 @@ data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/samp
 os.listdir(data_path)
 # Untr 3min_Fri_FOV2_decon.tif ## 1,3 and 6,8
 # CARs 3min_FOV3_decon.tif ## 1 and ??? 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) 
+actimg = get_ActImg('3min_FOV3_decon.tif', data_path) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0, 180, 20),sigma=2,substack=[1,3],visualise=False)
 actimg.z_project_min()

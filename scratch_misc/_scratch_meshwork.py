@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from meshure.actinimg import ActinImg, get_ActinImg
+from meshure.actimg import ActImg, get_ActImg
 #from meshure.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 os.chdir('actin_meshwork_analysis/scratch_misc')
-from _scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
+from actin_meshwork_analysis.scratch_misc._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
 
@@ -19,7 +19,7 @@ os.listdir(data_path)
 from PIL import Image
 
 
-actimg = get_ActinImg('3min_Fri_FOV2_decon.tif', data_path) # 1,3 / 6,8
+actimg = get_ActImg('3min_Fri_FOV2_decon.tif', data_path) # 1,3 / 6,8
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[1,3],visualise=False)
 
@@ -127,7 +127,7 @@ plt.imshow(labels, cmap=plt.cm.gnuplot); plt.show();
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
 os.listdir(data_path)
 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
 actimg.z_project_min()
@@ -164,7 +164,7 @@ os.listdir(data_path)
 # Basal [1],[1,3],[3,4],[1,2],[1],[1,4]
 # Cytoplasmic [4,6],[6,9],[6,8],[4,6],[3,5],[4,7]
 
-actimg = get_ActinImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
 actimg.z_project_min()
@@ -406,7 +406,7 @@ plt.close();
 
 """ Working out the mesh size (old). """
 
-actimg = get_ActinImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
+actimg = get_ActImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
 actimg.normalise()
 actimg.z_project_min()
 actimg.visualise('manipulated')
@@ -442,7 +442,7 @@ props[1].area
 
 plt.imshow(labels, cmap=plt.cm.gnuplot); plt.show();
 
-# actimg = get_ActinImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
+# actimg = get_ActImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
 
 # actimg.visualise('original', 1)
 # actimg.normalise()
@@ -479,7 +479,7 @@ def z_proj_im():
 
 
 # pipeline works?
-actimg = ActinImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
+actimg = ActImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
 #actimg.visualise_stack()
 actimg.image_stack
 actimg.normalise()
@@ -499,13 +499,13 @@ actimg.visualise('manipulated', colmap='gray')
 
 
 # THERE MUST BE A BUG 
-actimg = ActinImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
+actimg = ActImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
 actimg.normalise()
 actimg.steerable_gauss_2order([0,2],2,360,True)
-actimg = ActinImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
+actimg = ActImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
 actimg.normalise()
 actimg.steerable_gauss_2order([1,2],2,360,True)
-actimg = ActinImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
+actimg = ActImg(z_proj_im(), 'test.tiff', (10,10), 3, False, 20) 
 actimg.normalise()
 actimg.steerable_gauss_2order([2,2],2,360,True)
 
@@ -513,7 +513,7 @@ actimg.steerable_gauss_2order([2,2],2,360,True)
 
 # import numpy as np 
 # import matplotlib.pyplot as plt
-# from meshwork.meshwork import ActinImg, get_ActinImg
+# from meshwork.meshwork import ActImg, get_ActImg
 # from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
 # def z_proj_im():
@@ -525,10 +525,10 @@ actimg.steerable_gauss_2order([2,2],2,360,True)
 #     return np.array([im, np.transpose(im)])
 
 
-# actimg = ActinImg(z_proj_im(), 'test.tiff', (10,10), 2, False, 20) 
+# actimg = ActImg(z_proj_im(), 'test.tiff', (10,10), 2, False, 20) 
 
 # import os
-# actimg = get_ActinImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
+# actimg = get_ActImg('7min_Dual_fov2_deconv_1-3.tiff', os.path.join(os.getcwd(), 'meshwork/test_data'))
 # actimg.visualise_stack()
 # actimg.normalise()
 # actimg.z_project_max([1,2])
@@ -544,7 +544,7 @@ np.max(mat)
 
 
 impath = 'meshwork/steerable_gaussian/matlab_files/steerable_filters/steerable filters/'
-actimg = get_ActinImg('testUTR_3minTHUfov1_04.tif', os.path.join(os.getcwd(), impath))
+actimg = get_ActImg('testUTR_3minTHUfov1_04.tif', os.path.join(os.getcwd(), impath))
 #actimg.visualise()
 actimg.normalise()
 
@@ -606,12 +606,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from itertools import chain
-from actin_meshwork_analysis.meshure.actinimg import ActinImg, get_ActinImg
+from meshure.actimg import ActImg, get_ActImg
 #from meshwork.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 
 
 impath = 'meshwork/'
-actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', impath)
+actimg = get_ActImg('testUTR_3miFRIifov1_01.tif', impath)
 actimg.manipulated_stack = actimg.image_stack.copy()
 
 #actimg.visualise()
@@ -620,7 +620,7 @@ actimg.manipulated_stack = actimg.image_stack.copy()
 actimg.steerable_gauss_2order(None,2,90,True)
 actimg.visualise(imtype='manipulated')
 
-actimg = get_ActinImg('testUTR_3miFRIifov1_01.tif', impath)
+actimg = get_ActImg('testUTR_3miFRIifov1_01.tif', impath)
 actimg.normalise()
 
 #res_fig, res_stacks = [], [] 
