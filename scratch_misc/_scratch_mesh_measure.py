@@ -12,10 +12,11 @@
     and then determined the meshwork size of that specific gap as the diameter of the circle. 
 """
 
+
 import os
 import numpy as np 
 import matplotlib.pyplot as plt
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 from scipy.ndimage import correlate, morphology, label, binary_closing
 from skimage import measure
 from skimage import morphology as skimorph
@@ -35,7 +36,7 @@ planes = [1,2], [1], [3,5], [1,3], [1,3], [3,4], [1,4], [3,4]
 # the problem remains: what structure to choose.... 
 
 
-actimg = get_ActinImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
 actimg.normalise()
 # actimg.z_project_max([3,4])
 # im_og = actimg.manipulated_stack.copy()
@@ -179,10 +180,12 @@ plt.tight_layout()
 plt.show();
 
 
-diams = [prop.equivalent_diameter for prop in props]
+diams = [prop.equivalent_diameter_area for prop in props]
 plt.hist(diams, 200)
 #plt.xlim(0, 200)
 plt.show()
+
+measure.regionprops_table(labels, img, properties=['equivalent_diameter_area'])
 
 from skimage import morphology as skimorph
 plt.imshow(morphology.binary_fill_holes(skimorph.binary_closing(img, skimorph.square(2)))); plt.show()
@@ -190,4 +193,43 @@ plt.imshow(morphology.binary_fill_holes(skimorph.binary_closing(img, skimorph.sq
 plt.imshow(morphology.binary_fill_holes(binary_closing(img,structure=np.ones((2,2))))); plt.show()
 
 # could be closing followed by filling 
+
+
+
+
+## check if it works 
+actimg = get_ActImg('8min_Thurs_FOV2_decon.tif', data_path) 
+actimg.normalise()
+# actimg.z_project_max([3,4])
+# im_og = actimg.manipulated_stack.copy()
+
+#actimg.manipulated_stack = gaussian(actimg.manipulated_stack, 2)    # try this!!!! 
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
+actimg.z_project_min()
+
+actimg.threshold_dynamic(sigma_factor=0, return_mu_sigma=False)
+
+actimg.meshwork_density(True)
+
+# actimg.estimated_parameters
+# actimg.meshwork_size()
+
+actimg.save()
+from meshure.actimg import import_ActImg, ActImg
+
+act2 = import_ActImg('acimg_8min_Thurs_FOV2_decon.pkl')
+type(act2)
+eval(act2)
+act2.manipulated_depth
+
+
+
+# get mesh size 
+# convert units 
+# integrate into pipeline 
+# record mesh size 
+# change pipeline to sort into folders based on cell type specified in focal_planes 
+# preview results 
+# add depth 
+
 

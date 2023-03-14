@@ -3,18 +3,16 @@ import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from tqdm import tqdm
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 from meshure.utils import list_files_dir_str, search_files_root
 
 """ TODO: 
     - add checks to make sure everything is parametrised 
-    - run to see if it works with sample_data
-    - make pipeline customisable 
     - document each function
 """
 
 @dataclass()
-class ActinImgCollection:
+class ActImgCollection:
     root_path: str
     res_path: str=None
     only_subdirs: list[str]=None
@@ -30,12 +28,14 @@ class ActinImgCollection:
                 'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '03': {'func': 'z_project_min', 'params': None, 
                 'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '04': {'func': 'threshold', 'params': "self.parameters['threshold']", 
+            '04': {'func': 'threshold_dynamic', 'params': "sigma_factor=0, return_mu_sigma=False", 
                 'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '05': {'func': 'nuke', 'params': None, 'vis_stack': False},
-            '06': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']", 
+            '05': {'func': 'meshwork_density', 'params': "verbose=False",
+                'vis_stack': False},
+            '06': {'func': 'nuke', 'params': None, 'vis_stack': False},
+            '07': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']", 
                 'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '07': {'func': 'nuke', 'params': None,  'vis_stack': False}
+            '08': {'func': 'nuke', 'params': None,  'vis_stack': False}
             }
 
 
@@ -111,6 +111,10 @@ class ActinImgCollection:
                 Cytoplasmic : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
                     These are converted to a list inside the function
                 Notes : field not used by this function. 
+        Returns
+        -------
+        self.focal_planes : pandas DataFrame
+            ??? 
         """
         if not isinstance(filepath, str):
             raise TypeError('filepath path must be a string.')
@@ -225,7 +229,7 @@ class ActinImgCollection:
 
     def analysis_pipeline(self, filename, filepath):
         """ ??? """
-        actin_img_instance = get_ActinImg(filename, filepath)
+        actin_img_instance = get_ActImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
 
         basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic']].values[0]

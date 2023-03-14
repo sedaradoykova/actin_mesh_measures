@@ -2,7 +2,7 @@ import os, time
 import numpy as np 
 import pandas as pd
 from tqdm import tqdm
-from meshure.actinimg import get_ActinImg
+from meshure.actimg import get_ActImg
 from meshure.utils import list_files_dir_str, search_files_root
 
 
@@ -107,7 +107,7 @@ for celltype in celltypes:
 
 
     for name in tqdm(curr_filenames):
-        actimg = get_ActinImg(name, curr_filepaths)
+        actimg = get_ActImg(name, curr_filepaths)
         actimg.visualise_stack(imtype='original',save=True,dest_dir=save_destdir) 
         actimg.z_project_max()
         actimg.visualise_stack(imtype='manipulated',save=True,dest_dir=save_destdir)
