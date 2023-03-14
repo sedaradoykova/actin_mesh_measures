@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from tifffile import imsave
-from meshwork.actinimg import ActinImg
+from meshure.actimg import ActImg
 
 """ Instance creation fixtures. """
 
@@ -28,8 +28,8 @@ def random_image():
     return im 
 
 @pytest.fixture
-def anActinImg(random_image):
-    return ActinImg(random_image, 'test.tiff', random_image.shape[1:3], 3, False) 
+def anActImg(random_image):
+    return ActImg(random_image, 'test.tiff', random_image.shape[1:3], 3, False) 
 
 
 """ Data comparison fixtures (original, manipulated). """
@@ -96,16 +96,16 @@ def max_proj_res():
 @pytest.fixture
 def threshold_max_proj_res():
     return np.array([
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]])
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1, 1, 0, 1, 1, 1]])
 
 @pytest.fixture
 def z_proj_substack():
