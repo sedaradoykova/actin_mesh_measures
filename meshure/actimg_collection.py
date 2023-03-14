@@ -20,22 +20,26 @@ class ActImgCollection:
     focal_planes: pd.DataFrame=None
     analysis_steps=None
     parameters=None
-    pipeline_outline = {# loop through these if needed 
+    pipeline_outline = {# loop through these (if needed) for basal/cytosolic results 
             '01': {'func': 'normalise', 'params': None, 
-                'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+                   'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '02': {'func': 'steerable_gauss_2order_thetas', 
-                'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
-                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '03': {'func': 'z_project_min', 'params': None, 
-                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '04': {'func': 'threshold_dynamic', 'params': "sigma_factor=0, return_mu_sigma=False", 
-                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '05': {'func': 'meshwork_density', 'params': "verbose=False",
-                'vis_stack': False},
-            '06': {'func': 'nuke', 'params': None, 'vis_stack': False},
-            '07': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']", 
-                'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '08': {'func': 'nuke', 'params': None,  'vis_stack': False}
+                   'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
+                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '03': {'func': 'z_project_min', 'params': None,
+                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '04': {'func': 'threshold_dynamic', 'params': "std_dev_factor=0,return_mean_std_dev=False",
+                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '05': {'func': 'meshwork_density', 'params': "verbose=False", 
+                   'vis_stack': False},
+            '06': {'func': 'meshwork_size', 'params': "summary=True,verbose=False", 
+                   'vis_stack': False},
+            '07': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
+                   'vis_stack': False},
+            '08': {'func': 'nuke', 'params': None, 'vis_stack': False},
+            '09': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
+                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '10': {'func': 'nuke', 'params': None,  'vis_stack': False}
             }
 
 
@@ -151,8 +155,9 @@ class ActImgCollection:
             curr_planes = self.focal_planes[self.focal_planes['Type'].apply(lambda x: 'car' in x.lower())]
         else:
             raise ValueError('Cell type not recognised as either Untransduced or CAR.')
-
-        if not any(curr_planes['File name'].sort_values() == sorted(curr_filenames)):
+        try: 
+            any(curr_planes['File name'].sort_values() == sorted(curr_filenames))
+        except ValueError: 
             raise ValueError(f'File names do not match between focal planes csv file and filenames listed in {curr_filepath}.')
         else: 
             return curr_filenames, curr_filepath
@@ -186,7 +191,7 @@ class ActImgCollection:
         self.pipeline_outline = new_pipeline
 
 
-    def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=0.002, dest_dir=None):
+    def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=None, dest_dir=None):
         """ Fill in parameters based on function calls in pipeline. 
         Arguments
         ---------

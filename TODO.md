@@ -175,9 +175,15 @@
 - [X] dynamic thresholding - compare line profiles to response histogram mu/sigmas 
 - [X] color code by maximum (actually minimum) response orientation
 - [X] make plots/gifs which explain how gaussian detects edges (orientations) and minimum-projection highlights them 
-- [ ] get mesh size and density 
-- [ ] fix/integrate pipeline 
+- [X] get mesh size and density 
+- [X] fix/integrate pipeline 
 - [ ] clean up code graveyard... it's starting to get out of hand
+- [ ] make reports neater 
+    - exclude unnecessary plots e.g. steerable intermediates 
+    - include closing+filling result
+    - summarise results per cell type + plots + tests 
+- [ ] improve documentation
+- [ ]
 
 ## Other considerations 
 
