@@ -845,7 +845,7 @@ class ActImg:
         return None
 
 
-    def meshwork_size(self, summary: bool=False, verbose: bool=False):
+    def meshwork_size(self, summary: bool=False, verbose: bool=False, save_vis=False, dest_dir: str=os.getcwd()):
         """ Accepts a binary image and returns meshwork size. 
         Uses skimage.measure.regionprops - `equivalent_diameter_area`
         'The diameter of a circle with the same area as the region.'
@@ -855,6 +855,8 @@ class ActImg:
             Optionally, calculate 
         verbose : bool=False
             Optionally, print out summary statistics for mesh size. Must have `summary=True` to print.
+        save_vis : bool=False
+            Optionally, save a plot with the results of the filling and labelling of the binary image. 
         Returns
         -------
         self.estimated_parameters['equivalent_diameters'] : pandas DataFrame
@@ -868,6 +870,10 @@ class ActImg:
         """
         if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
             raise ValueError('Input image is not binary.')
+        if not all(list(map(lambda x: isinstance(x, bool), [summary, verbose, save_vis]))):
+            raise TypeError('`summary`, `verbose`, `save_vis` must all be boolean.')
+        if not os.path.exists(dest_dir):
+            raise FileExistsError(f'Path not found: {dest_dir}')
         
         img = self.manipulated_stack.copy()
         img_inverted = (img==0).astype('int')
@@ -889,6 +895,34 @@ class ActImg:
             print(f'95% CI of the mean:    [{CI95_mean_norm_lower:.3f}, {CI95_mean_norm_upper:.3f}]')
             print(f'median mesh size:      {median:.3f}')
             print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
+        
+        if save_vis: 
+            # close any very small holes to ensure uniformity 
+            closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
+            # fill any holes in closed image
+            filled_img = morphology.binary_fill_holes(closed_img)
+            plt.subplot(2,2,1)
+            plt.imshow(img, cmap='gray')
+            plt.title('binary image')
+            plt.axis('off')
+            plt.subplot(2,2,2)
+            plt.imshow(filled_img, cmap='gray')
+            plt.title('filled image')
+            plt.axis('off')
+            plt.subplot(2,2,3)
+            plt.imshow(img_inverted, cmap='gray')
+            plt.title('inverted image')
+            plt.axis('off')
+            plt.subplot(2,2,4)
+            plt.imshow(labels, cmap='tab20c_r')
+            plt.title('inverted image labels')
+            plt.axis('off')
+            plt.tight_layout()
+
+            imtitle = f'{self.title.split(".")[0]}_mesh_segmentation.png'
+            dest = os.path.join(dest_dir, imtitle)
+            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.close()
         return None
 
 

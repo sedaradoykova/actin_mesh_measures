@@ -25,14 +25,14 @@ class ActImgCollection:
                    'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '02': {'func': 'steerable_gauss_2order_thetas', 
                    'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
-                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+                   'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '03': {'func': 'z_project_min', 'params': None,
                    'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '04': {'func': 'threshold_dynamic', 'params': "std_dev_factor=0,return_mean_std_dev=False",
                    'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '05': {'func': 'meshwork_density', 'params': "verbose=False", 
                    'vis_stack': False},
-            '06': {'func': 'meshwork_size', 'params': "summary=True,verbose=False", 
+            '06': {'func': 'meshwork_size', 'params': "summary=True,verbose=False,save_vis=True,dest_dir=self.parameters['dest_dir']", 
                    'vis_stack': False},
             '07': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
                    'vis_stack': False},
@@ -258,7 +258,7 @@ class ActImgCollection:
         curr_filenames, curr_filepath = self._all_filenames[subdir], self._all_filepaths[subdir]
         curr_filenames = [f for f in curr_filenames if 'tif' in f and f not in self._filenames_to_del]
 
-        all_output_types = dict.fromkeys(['original', 'max_proj', 'steer_gauss', 'min_proj', 'threshold'])
+        all_output_types = dict.fromkeys(['original', 'max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment'])
 
         out_types = ['original']
         type_file_ends = ['original']
@@ -267,8 +267,8 @@ class ActImgCollection:
             all_output_types[key] = [res for res in results_filenames if val_check in res]
 
 
-        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold']
-        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png']
+        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment']
+        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png', 'mesh_segment']
         results_filenames = [res for res in os.listdir(self.__save_destdir+'/basal') if 'png' in res]
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
@@ -287,17 +287,17 @@ class ActImgCollection:
                 f.write('\n\n')
                 f.write('## Basal network  ')
                 f.write('\n\n')
-                f.write('**Maximum z-projection**  ')
+                f.write('**Maximum z-projection (raw)**  ')
                 f.write('\n')
                 if len(all_output_types['max_proj']) > 0:
                     f.write(f'![](basal/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
                 f.write('\n')
-                f.write('**Steerable second order Gaussian filter**  ')
-                f.write('\n')
-                if len(all_output_types['steer_gauss']) > 0:
-                    f.write(f'![](basal/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                f.write('**Minimum z-projection**  ')
+                # f.write('**Steerable second order Gaussian filter**  ')
+                # f.write('\n')
+                # if len(all_output_types['steer_gauss']) > 0:
+                #     f.write(f'![](basal/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
+                # f.write('\n')
+                f.write('**Minimum z-projection of steerable filter response**  ')
                 f.write('\n')
                 if len(all_output_types['min_proj']) > 0:
                     f.write(f'![](basal/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
@@ -306,20 +306,25 @@ class ActImgCollection:
                 f.write('\n')
                 if len(all_output_types['threshold']) > 0:
                     f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                f.write('\n')
+                f.write('**Mesh segmentation**  ')
+                f.write('\n')
+                if len(all_output_types['mesh_segment']) > 0:
+                    f.write(f'![](basal/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
                 f.write('\n\n')
                 f.write('## Cytosolic network  ')
                 f.write('\n\n')
-                f.write('**Maximum z-projection**  ')
+                f.write('**Maximum z-projection (raw)**  ')
                 f.write('\n')
                 if len(all_output_types['max_proj']) > 0:
                     f.write(f'![](cytosolic/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
                 f.write('\n')
-                f.write('**Steerable second order Gaussian filter**  ')
-                f.write('\n')
-                if len(all_output_types['steer_gauss']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                f.write('**Minimum z-projection**  ')
+                # f.write('**Steerable second order Gaussian filter**  ')
+                # f.write('\n')
+                # if len(all_output_types['steer_gauss']) > 0:
+                #     f.write(f'![](cytosolic/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
+                # f.write('\n')
+                f.write('**Minimum z-projection of steerable filter response**  ')
                 f.write('\n')
                 if len(all_output_types['min_proj']) > 0:
                     f.write(f'![](cytosolic/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
@@ -328,6 +333,12 @@ class ActImgCollection:
                 f.write('\n')
                 if len(all_output_types['threshold']) > 0:
                     f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                f.write('\n')
+                f.write('**Mesh segmentation**  ')
+                f.write('\n')
+                if len(all_output_types['mesh_segment']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
+
                 f.write('\n\n\n')
             
 

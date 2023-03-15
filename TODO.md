@@ -165,9 +165,9 @@
         - [X] this has yielded some interesting  
     - make blob for cell segmentation 
         - upon reflection this might not be great because we might get different cell areas - but i have not tried it... 
-- [ ] Delete 2-3 pixel islands (using CCA)
+- [ ] Delete 2-3 pixel islands (using CCA) [???]
     - this may or may not be necessary further down the line... 
-- [ ] Visual Studio problem not VSCode
+- [-] Visual Studio problem not VSCode
 - FIXED CODE!! all that was missing was a minimum projection of the thetas_response_stack (instead of taking mean or maximum projection)
 
 ## Things tried after 03/03
@@ -178,12 +178,13 @@
 - [X] get mesh size and density 
 - [X] fix/integrate pipeline 
 - [ ] clean up code graveyard... it's starting to get out of hand
-- [ ] make reports neater 
-    - exclude unnecessary plots e.g. steerable intermediates 
-    - include closing+filling result
-    - summarise results per cell type + plots + tests 
 - [ ] improve documentation
-- [ ]
+- [ ] implement proper post-processing functions for analysis results 
+- [ ] divide results per cell type activation time (not just untr / car) ++ basal/cytosolic
+- [ ] test data / understand analysis 
+    - ANOVA 
+    - mean or median equivalent diameter size? 
+- [ ] problem with data: segmentation fails with disrupted networks (where outline is broken)
 
 ## Other considerations 
 
