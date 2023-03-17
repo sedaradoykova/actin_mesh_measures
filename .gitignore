@@ -12,5 +12,6 @@ steerable_gaussian/steerable-master
 
 process_data/deconv_data
 process_data/sample_data
+process_data/extracted_measurements
 
 scratch_misc/test_data
