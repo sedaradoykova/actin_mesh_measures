@@ -107,38 +107,49 @@ class ActImgCollection:
         Arguments
         ---------
         filepath : str 
-            Filepath specifies a csv file with four fields (named exactly: 'File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes').
+            Filepath specifies a csv file with four fields (named exactly: 'File name', 'Type', 'Basal', 'Cytosolic', 'Notes').
                 File name : name of tiff file 
                 Type : cell type, either 'Untransduced' or 'CAR'
                 Basal : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
                     These are converted to a list inside the function
-                Cytoplasmic : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
+                Cytosolic : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
                     These are converted to a list inside the function
                 Notes : field not used by this function. 
         Returns
         -------
         self.focal_planes : pandas DataFrame
             ??? 
+        Raises
+        -----
+        Warning
+            If the filenames in the CSV file are not unique, a warning is raised but the program is executed. 
         """
         if not isinstance(filepath, str):
             raise TypeError('filepath path must be a string.')
         if not os.path.exists(filepath):
             raise ValueError(f'Path not found: {filepath}.')
+        if not filepath.endswith('.csv'): 
+            raise TypeError(f'Invalid file {os.path.basename(filepath)}; CSV required.')
 
         focal_planes = pd.read_csv(filepath)
-        # if list(focal_planes.columns) != ['File name', 'Basal', 'Cytoplasmic', 'Notes']:
-        #     raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes']")
+        # if list(focal_planes.columns) != ['File name', 'Basal', 'Cytosolic', 'Notes']:
+        #     raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytosolic', 'Notes']")
 
         # if basal or cytosolic planes are not speficied, discard   
-        self._filenames_to_del = focal_planes['File name'][focal_planes[['Basal', 'Cytoplasmic']].isna().any(axis=1)].tolist()
-        focal_planes = focal_planes.dropna(subset=['Basal', 'Cytoplasmic'])
+        self._filenames_to_del = focal_planes['File name'][focal_planes[['Basal', 'Cytosolic']].isna().any(axis=1)].tolist()
+        focal_planes = focal_planes.dropna(subset=['Basal', 'Cytosolic'])
 
         focal_planes['Basal'] = focal_planes['Basal'].apply(lambda val: [int(x) for x in val.split(',')])
-        focal_planes['Cytoplasmic'] = focal_planes['Cytoplasmic'].apply(lambda val: [int(x) for x in val.split(',')])
+        focal_planes['Cytosolic'] = focal_planes['Cytosolic'].apply(lambda val: [int(x) for x in val.split(',')])
+
+
+        if focal_planes.iloc[:,0].unique().shape[0] == focal_planes.shape[0]:
+            warnings.warn(f'File names in {os.path.basename(filepath)} are not unique.')
 
         self.focal_planes=focal_planes
+        return None
 
-        
+
     def initialise_curr_filenames_and_planes(self, subdir):
         """ Called inside analysis loop. Subsets the current filenames which are being processed based on subdir. 
         
@@ -237,9 +248,9 @@ class ActImgCollection:
         actin_img_instance = get_ActImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
 
-        basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic']].values[0]
+        basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytosolic']].values[0]
         ### use mean background intensity (extracted from image background in imagej)
-        # basal_stack, cyto_stack, background = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytoplasmic', 'Background']].values[0]
+        # basal_stack, cyto_stack, background = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytosolic', 'Background']].values[0]
         # threshold = (float(background) - np.min(actin_img_instance.image_stack))/(np.max(actin_img_instance.image_stack)-np.min(actin_img_instance.image_stack))
         # self.parameters['threshold'] = threshold
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):

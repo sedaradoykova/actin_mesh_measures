@@ -26,7 +26,7 @@ sample_data.only_subdirs = only_subdirs
 sample_data.parametrise_pipeline(*parameters)
 #sample_data.parametrise_pipeline(None, None, theta_x6, 2, None) ### for background threshold
 
-sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
+###sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
 
 
 #### some interactive features to be included further 
@@ -196,3 +196,200 @@ model = ols('value ~ C(mesh_type)', data=respd_long[respd_long.variable=='median
 anova_table = sm.stats.anova_lm(model, typ=2)
 anova_table
 
+
+
+
+#### GETTING 305964 TABLES
+
+# basal Untr
+
+deconv_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_CARs'),
+              os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_Untr')]
+
+
+names, paths = list_files_dir_str(deconv_paths[1])
+filepaths = [os.path.join(paths['basal'], n) for n in names['basal'] if 'json' in n]
+filenames = [n for n in names['basal'] if 'json' in n]
+len(filepaths)
+len(filenames)
+
+# 1 min untransduced (basal)
+
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# get filenames in csv 
+min1_fnames = sample_data.focal_planes['File name'].loc[(sample_data.focal_planes['File name'].str.contains('1min')) & 
+                                                        sample_data.focal_planes['Type'].str.contains('Untrans')]
+# get 1 min filepaths from basal filepaths 
+min1_fpaths = [f for f in filepaths if '1min' in f]
+
+len(min1_fpaths) == min1_fnames.shape[0]
+
+(min1_fpaths[0].split("_params_")[-1].replace(".json", ""))
+
+min1_Untr_basal_diams = []
+min1_Untr_basal_dens = []
+for filepath in min1_fpaths:
+#    mtype = "_".join(filepath.split('\\')[-3:-1]).replace("_results_", '')
+    with open(filepath, 'r') as file: 
+        data = json.load(file)
+    min1_Untr_basal_diams += data['equivalent_diameters']
+    min1_Untr_basal_dens += [data['mesh_density_percentage']]
+
+len(min1_Untr_basal_diams)
+
+df_min1_Untr_basal_dens = pd.DataFrame({'file_name': min1_fnames,
+                                         'mesh_density_percentage': min1_Untr_basal_dens})
+df_min1_Untr_basal_diams = pd.DataFrame({'equiv_diameters': min1_Untr_basal_diams})
+
+
+sns.histplot(x='equiv_diameters', data=df_min1_Untr_basal_diams)
+plt.show()
+
+
+sns.violinplot(y='mesh_density_percentage', data=df_min1_Untr_basal_dens, orient='h')
+plt.show()
+
+sns.violinplot(y='equiv_diameters', data=df_min1_Untr_basal_diams, orient='h')
+plt.show()
+
+
+
+
+### automate 
+
+deconv_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_Untr'),
+                os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_CARs')]
+
+
+min_Untr_basal_diams = []
+min_Untr_basal_dens = []
+df_equiv_diams = pd.DataFrame(columns=['file_name', 'time', 'cell_type','mesh_type','equiv_diameters'])
+df_mesh_density = pd.DataFrame(columns=['file_name', 'time', 'cell_type','mesh_type','mesh_density'])
+for (celltype, respath) in zip(['untrans', 'car'], deconv_paths):
+    for meshtype in ['basal', 'cytosolic']:
+        for time in ['1min', '3min', '8min']:
+
+            names, paths = list_files_dir_str(respath)
+            filepaths = [os.path.join(paths[meshtype], n) for n in names[meshtype] if 'json' in n]
+            filenames = [n for n in names[meshtype] if 'json' in n]
+            # get filenames in csv 
+            min_fnames = sample_data.focal_planes['File name'].loc[(sample_data.focal_planes['File name'].str.contains(time)) & 
+                                                                    sample_data.focal_planes['Type'].str.contains(celltype)]
+            # get 1 min filepaths from basal filepaths 
+            min_fpaths = [f for f in filepaths if time in f]
+
+            for filepath in min_fpaths:
+            #    mtype = "_".join(filepath.split('\\')[-3:-1]).replace("_results_", '')
+                with open(filepath, 'r') as file: 
+                    data = json.load(file)
+                min_Untr_basal_diams += data['equivalent_diameters']
+                min_Untr_basal_dens += [data['mesh_density_percentage']]
+
+                name = (filepath.split("_params_")[-1].replace(".json", "")) 
+                n = len(data['equivalent_diameters'])
+                cell_type_pd = sample_data.focal_planes['Type'].loc[(sample_data.focal_planes['File name'].str.contains(name)) & 
+                                                                    sample_data.focal_planes['Type'].str.contains(celltype, case=False)].tolist()
+
+                df_equiv_diams = pd.concat([df_equiv_diams,
+                                                pd.DataFrame({'file_name': [name]*n,
+                                                'time': [time]*n,
+                                                'cell_type': cell_type_pd*n,
+                                                'mesh_type': [meshtype]*n,
+                                                'equiv_diameters': data['equivalent_diameters']})],
+                                                ignore_index=True, sort=False)
+                df_mesh_density = pd.concat([df_mesh_density,
+                                                pd.DataFrame({'file_name': [name],
+                                                'time': [time],
+                                                'cell_type': cell_type_pd,
+                                                'mesh_type': [meshtype],
+                                                'mesh_density': [data['mesh_density_percentage']]})],
+                                                ignore_index=True, sort=False)
+                
+
+df_equiv_diams.shape[0] == len(min_Untr_basal_diams)
+
+
+df_equiv_diams = df_equiv_diams.astype({'file_name': 'category','time': 'category', 'cell_type': 'category', 
+                                                  'mesh_type': 'category', 'equiv_diameters': 'float64'})
+df_mesh_density = df_mesh_density.astype({'file_name': 'category','time': 'category', 'cell_type': 'category', 
+                                                  'mesh_type': 'category', 'mesh_density': 'float64'})
+
+
+
+#### PLOT EQUIV DIAMS 
+
+plt.figure(figsize=(8,6))
+sns.stripplot(x='cell_type', y='equiv_diameters', data=df_equiv_diams, hue='time', color="gray", edgecolor="black", alpha=0.1, dodge=True)
+sns.violinplot(x='cell_type', y='equiv_diameters', data=df_equiv_diams, hue='time', dodge=True, alpha=0.75)
+plt.show()
+
+
+df_equiv_diams.cell_type.unique()
+
+celltype_order = ['Untransduced','CAR_dual','CAR_antiCD19','CAR_antiCD22','CAR_UNTR']
+time_order = ['1min','3min','8min']
+
+g = sns.FacetGrid(df_equiv_diams, row='mesh_type', col='time',hue='mesh_type', col_order=time_order)
+g.map(sns.violinplot, 'cell_type','equiv_diameters',dodge=True,alpha=0.75,order=celltype_order)
+g.map(sns.stripplot, 'cell_type','equiv_diameters',color="gray",alpha=0.1,dodge=True,s=3, order=celltype_order)
+#g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+axes = g.axes.flatten()
+axes[0].set_title('Activation time: 1 min')
+axes[1].set_title('Activation time: 3 min')
+axes[2].set_title('Activation time: 8 min')
+for n in np.arange(3,7):
+    axes[n].set_title("")
+axes[0].set_ylabel('Basal mesh size (equiv. diameter, px)')
+axes[3].set_ylabel('Cytosolic mesh size (equiv. diameter, px)')
+for ax in axes:
+    _ = ax.set_xticklabels(ax.get_xticklabels(), rotation=15)
+    ax.set_xlabel('Cell type')
+plt.show()
+
+
+
+g = sns.FacetGrid(df_equiv_diams, row='cell_type', col='time',hue='mesh_type', col_order=time_order)
+g.map(sns.histplot,'equiv_diameters',alpha=0.75, legend=True)
+#g.map(sns.stripplot, 'cell_type','equiv_diameters',color="lightgray",alpha=0.1,dodge=True,s=3, order=celltype_order)
+plt.show()
+
+
+
+### PLOT MESH DENSITY 
+
+g = sns.FacetGrid(df_mesh_density, row='mesh_type', col='time',hue='mesh_type', col_order=time_order)
+g.map(sns.violinplot, 'cell_type','mesh_density',dodge=True,alpha=0.75,order=celltype_order)
+g.map(sns.stripplot, 'cell_type','mesh_density',color="lightgray",alpha=0.9,dodge=True,s=3, order=celltype_order)
+#g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+axes = g.axes.flatten()
+axes[0].set_title('Activation time: 1 min')
+axes[1].set_title('Activation time: 3 min')
+axes[2].set_title('Activation time: 8 min')
+for n in np.arange(3,7):
+    axes[n].set_title("")
+axes[0].set_ylabel('Basal mesh density (%)')
+axes[3].set_ylabel('Cytosolic mesh denisty (%)')
+for ax in axes:
+    _ = ax.set_xticklabels(ax.get_xticklabels(), rotation=15)
+    ax.set_xlabel('Cell type')
+plt.show()
+
+g = sns.FacetGrid(df_mesh_density, row='cell_type', col='time',hue='mesh_type', col_order=time_order)
+g.map(sns.histplot,'mesh_density',alpha=0.75, bins=10)
+#g.map(sns.stripplot, 'cell_type','equiv_diameters',color="lightgray",alpha=0.1,dodge=True,s=3, order=celltype_order)
+plt.show()
+
+g = sns.FacetGrid(df_mesh_density, row='cell_type', col='time',hue='mesh_type', col_order=time_order)
+g.map(sns.stripplot,'mesh_type', 'mesh_density',alpha=0.75)
+#g.map(sns.stripplot, 'cell_type','equiv_diameters',color="lightgray",alpha=0.1,dodge=True,s=3, order=celltype_order)
+plt.show()
+
+
+
+df_mesh_density.to_csv('all_mesh_densities_not_checked.csv')
+df_equiv_diams.to_csv('all_equivalent_diameters_not_checked.csv')
