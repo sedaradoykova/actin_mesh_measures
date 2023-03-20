@@ -212,10 +212,10 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
 
+actimg._threshold_preview_cases(factors=[-0.25,0,0.25], max_proj_substack=[3,4])
 
-actimg.threshold_dynamic(std_dev_factor=0, return_mean_st_dev=False)
-actimg.visualise_stack('manipulated')
-#actimg._threshold_preview_cases(factors=[0,0.25,0.5,1], max_proj_substack=[3,4])
+actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
+actimg.visualise_stack('manipulated',colmap='gray')
 
 
 actimg.meshwork_density(True)
@@ -248,3 +248,51 @@ act2.manipulated_depth
 # add depth 
 
 
+img = np.copy(actimg.manipulated_stack)
+img_inverted = (img==0).astype('int')
+
+# closing 
+closed_image = binary_closing(img, structure = np.ones((15,15))) # compare    5,5   7,7   10,10   15,15   30,30
+difference_closed = ~closed_image+img
+# filling 
+filled_image = morphology.binary_fill_holes(img)#,structure=np.ones((5,5)))
+difference_filled = ~filled_image+img
+
+labels = measure.label(img_inverted)#, connectivity=0.5)
+plt.imshow(labels, cmap='tab20c_r'); plt.show();
+
+
+import pandas as pd
+centroids = pd.DataFrame(measure.regionprops_table(labels, img, properties=['centroid']))
+centroids.columns = ['row','col']
+
+from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy import ndimage  #ndimage.rotate(labels,90)
+
+vor = Voronoi(centroids.T) #take transpose to imshow correctly
+
+fig = plt.figure(figsize=(10,10))
+ax = fig.add_subplot(111)
+ax.imshow(labels, cmap='tab20c_r', alpha=0.4)
+voronoi_plot_2d(vor, show_vertices=False, line_width=2, line_alpha=0.6, point_size=2, ax=ax)
+plt.ylim(img.shape[0],0)
+plt.axis('off')
+plt.show()
+
+vor = Voronoi(centroids[['col','row']]) #take transpose to imshow correctly
+
+
+fig = plt.figure(figsize=(10,10))
+ax = fig.add_subplot(111)
+ax.imshow(labels, cmap='nipy_spectral', alpha=1)
+ax.scatter(centroids['col'],centroids['row'],s=3.5,color='white')
+voronoi_plot_2d(vor, show_vertices=False, line_width=0.5, line_alpha=1, point_size=2, ax=ax,line_colors='white',color='white')
+plt.ylim(img.shape[0],0)
+plt.axis('off')
+plt.show()
+
+fig.add_subplot(122)
+plt.imshow(labels, cmap='nipy_spectral', alpha=1)
+plt.scatter(centroids['col'],centroids['row'],s=2,color='white')
+plt.axis('off')
+plt.show()

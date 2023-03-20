@@ -270,6 +270,7 @@ min_Untr_basal_diams = []
 min_Untr_basal_dens = []
 df_equiv_diams = pd.DataFrame(columns=['file_name', 'time', 'cell_type','mesh_type','equiv_diameters'])
 df_mesh_density = pd.DataFrame(columns=['file_name', 'time', 'cell_type','mesh_type','mesh_density'])
+df_threshold_parameters = pd.DataFrame(columns=['file_name', 'time', 'cell_type','mesh_type','mean', 'std_dev'])
 for (celltype, respath) in zip(['untrans', 'car'], deconv_paths):
     for meshtype in ['basal', 'cytosolic']:
         for time in ['1min', '3min', '8min']:
@@ -295,6 +296,8 @@ for (celltype, respath) in zip(['untrans', 'car'], deconv_paths):
                 cell_type_pd = sample_data.focal_planes['Type'].loc[(sample_data.focal_planes['File name'].str.contains(name)) & 
                                                                     sample_data.focal_planes['Type'].str.contains(celltype, case=False)].tolist()
 
+                mean, std_dev = data["aggregated_line_profiles"].values()
+
                 df_equiv_diams = pd.concat([df_equiv_diams,
                                                 pd.DataFrame({'file_name': [name]*n,
                                                 'time': [time]*n,
@@ -309,6 +312,13 @@ for (celltype, respath) in zip(['untrans', 'car'], deconv_paths):
                                                 'mesh_type': [meshtype],
                                                 'mesh_density': [data['mesh_density_percentage']]})],
                                                 ignore_index=True, sort=False)
+                df_threshold_parameters = pd.concat([df_threshold_parameters,
+                                                pd.DataFrame({'file_name': [name],
+                                                'time': [time],
+                                                'cell_type': cell_type_pd,
+                                                'mesh_type': [meshtype],
+                                                'mean': [mean], 'std_dev': [std_dev]})],
+                                                ignore_index=True, sort=False)
                 
 
 df_equiv_diams.shape[0] == len(min_Untr_basal_diams)
@@ -318,6 +328,8 @@ df_equiv_diams = df_equiv_diams.astype({'file_name': 'category','time': 'categor
                                                   'mesh_type': 'category', 'equiv_diameters': 'float64'})
 df_mesh_density = df_mesh_density.astype({'file_name': 'category','time': 'category', 'cell_type': 'category', 
                                                   'mesh_type': 'category', 'mesh_density': 'float64'})
+df_threshold_parameters = df_threshold_parameters.astype({'file_name': 'category','time': 'category', 'cell_type': 'category',
+                                                          'mesh_type': 'category', 'mean': 'float64', 'std_dev': 'float64'})
 
 
 
@@ -390,6 +402,37 @@ g.map(sns.stripplot,'mesh_type', 'mesh_density',alpha=0.75)
 plt.show()
 
 
+
+### plot threshold valeus 
+
+crosses = df_threshold_parameters.groupby(['cell_type','time'])[['mean','std_dev']].mean()
+crosses = crosses.reset_index(level=[0,1])
+crosses.dropna(axis = 0, how = 'any', inplace = True)
+
+plt.figure(figsize=(8,6))
+ax = sns.violinplot(x='cell_type', y='mean', data=df_threshold_parameters, hue='time', dodge=True, alpha=0.5)
+sns.stripplot(x='cell_type', y='mean', data=df_threshold_parameters, hue='time', 
+              color="black", edgecolor="black", alpha=0.7, dodge=True,ax=ax)
+# sns.stripplot(x='cell_type', y='mean', data=crosses,marker='X',
+#                 s=10, color='red', dodge=True)
+handles, labels = ax.get_legend_handles_labels()
+plt.legend(handles[0:3], labels[0:3], loc=1, title='activation time') 
+plt.title('threshold values: aggregted profile means')
+plt.show()
+
+
+plt.figure(figsize=(8,6))
+ax = sns.violinplot(x='cell_type', y='std_dev', data=df_threshold_parameters, hue='time', dodge=True, alpha=0.5)
+sns.stripplot(x='cell_type', y='std_dev', data=df_threshold_parameters, hue='time', 
+              color="black", edgecolor="black", alpha=0.7, dodge=True,ax=ax)
+# sns.stripplot(x='cell_type', y='mean', data=crosses,marker='X',
+#                 s=10, color='red', dodge=True)
+handles, labels = ax.get_legend_handles_labels()
+plt.legend(handles[0:3], labels[0:3], loc=1, title='activation time') 
+plt.title('threshold values: aggregted profile std_devs')
+plt.show()
+
+### save csvs 
 
 df_mesh_density.to_csv('all_mesh_densities_not_checked.csv')
 df_equiv_diams.to_csv('all_equivalent_diameters_not_checked.csv')
