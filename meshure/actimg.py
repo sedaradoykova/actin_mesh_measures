@@ -18,6 +18,7 @@ from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dim
     - [ ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
     - when to return self?   
     - [ ] finish class docstrings
+    - [ ] check if the analysis method has already been called on the instance to prevent meaningless manipulations
 """
 
 @dataclass(repr=True)
@@ -214,7 +215,6 @@ class ActImg:
                     # convert barsize to nm if necessary because scale is specified in nm  
                     barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
                     scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
-                    scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     ax.add_artist(scalebar)
                 ax.set_axis_off()
                 ax.text(0.66, 0.05, 'n={count}'.format(count=substack[0]+n),color='#F2F2F2',transform=ax.transAxes,fontsize=8)
@@ -849,6 +849,7 @@ class ActImg:
 
     def meshwork_density(self, verbose=False):
         """ Accepts a binary image and returns the meshwork density (percentage).
+        ...
         Arguments
         ---------
         verbose : bool=False
@@ -881,6 +882,44 @@ class ActImg:
         self._call_hist('meshwork_density')
         return None
 
+    def surface_area(self, verbose=False):
+        """ Accepts a binary image and returns the segmented cell surface area. Recommended use with basal membrane manipulation.
+        ...
+        Arguments
+        ---------
+        verbose : bool=False
+            Optionally, print out mesh density percentage and definition. 
+        Returns
+        ------
+        self.estimated_parameters['surface_area'] : float
+            The segmented cell surface area, defined as the sum of the labelled pixels * size of one pixel ($`pixel_size_xy`^2$).
+        Raises
+        ------
+        ValueError
+            If the manipulated_stack is not a binary array with values [0,1].
+        """
+        if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
+            raise ValueError('Input image is not binary.')
+        
+        try:
+            filled_img = self._binary_images['filled_image'].copy()
+        except KeyError: 
+            img = self.manipulated_stack.copy()
+            # close any very small holes to ensure uniformity 
+            closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
+            # fill any holes in closed image
+            filled_img = morphology.binary_fill_holes(closed_img)
+            self._binary_images['filled_image'] = filled_img.copy()
+
+        surface_area = np.sum(filled_img)*(self.resolution['pixel_size_xy']**2)
+
+        if verbose: 
+            print(f'Segmented cell surface area is {surface_area:.0f} {self.resolution["unit"]}^2.')
+            print('Defined as the difference between the filled and unfilled mask.')
+
+        self.estimated_parameters['surface_area'] = surface_area
+        self._call_hist('surface_area')
+        return None
 
     def meshwork_size(self, summary: bool=False, verbose: bool=False, visualise=False, save_vis=False, dest_dir: str=os.getcwd()):
         """ Accepts a binary image and returns meshwork size. 
@@ -931,9 +970,9 @@ class ActImg:
             self.estimated_parameters['mesh_size_summary'] = {'mean': mean, '95%_CI': [CI95_mean_norm_lower, CI95_mean_norm_upper],
                                                               'median': median, 'IQR': [Q25, Q75]}
         if verbose and summary: 
-            print(f'mean mesh size:        {mean:.3f}')
+            print(f'mean mesh size ({self.resolution["unit"]}):        {mean:.3f}')
             print(f'95% CI of the mean:    [{CI95_mean_norm_lower:.3f}, {CI95_mean_norm_upper:.3f}]')
-            print(f'median mesh size:      {median:.3f}')
+            print(f'median mesh size ({self.resolution["unit"]}):      {median:.3f}')
             print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
         
         if visualise or save_vis: 
@@ -944,6 +983,7 @@ class ActImg:
                 closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
                 # fill any holes in closed image
                 filled_img = morphology.binary_fill_holes(closed_img)
+                self._binary_images['filled_image'] = filled_img.copy()
             plt.subplot(2,2,1)
             plt.imshow(img, cmap='gray')
             plt.title('binary image')
