@@ -220,13 +220,15 @@ actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
 
 
 actimg.meshwork_density(True)
-actimg.meshwork_size(True, False, True)
+actimg.meshwork_size(True, True, True)
+actimg.surface_area(True)
 
+actimg._history
 
-actimg.resolution
 actimg.estimated_parameters.keys()
 actimg.estimated_parameters['mesh_size_summary']
 actimg.estimated_parameters['aggregated_line_profiles']
+actimg.estimated_parameters['surface_area'] / 1e6
 
 
 actimg.save_estimated_params()

@@ -12,7 +12,8 @@ data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deco
 focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_CARs_noCAR_untr.csv')
 only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_imageJ']
 ## OLD Analysis completed in 00:07:47.
-# 15/03 Analysis completed in 00:10:28.
+## 15/03 Analysis completed in 00:10:28.
+## 11/03 Analysis completed in 00:17:50.
 
 #theta_x6 = np.arange(0,360,60)
 #theta_x3 = np.arange(60,360,120)
@@ -26,7 +27,7 @@ sample_data.only_subdirs = only_subdirs
 sample_data.parametrise_pipeline(*parameters)
 #sample_data.parametrise_pipeline(None, None, theta_x6, 2, None) ### for background threshold
 
-###sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
+sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
 
 
 #### some interactive features to be included further 
@@ -34,7 +35,7 @@ sample_data.parametrise_pipeline(*parameters)
 # sample_data.print_summary(interact=True)
 
 
-# for labelled cars 
+# for labelled cars - count 
 sample_data.focal_planes.Type.value_counts()
 
 import pandas as pd
@@ -103,16 +104,15 @@ sample_data.focal_planes.Type.unique()
 
 #### GETTING 305964 TABLES
 
-import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # respd_pv = respd.pivot(columns='mesh_type')
 # respd_long = respd.melt(id_vars=['mesh_type'])
 
 
-### automate 
+### automate
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 deconv_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_Untr'),
                 os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_CARs')]
