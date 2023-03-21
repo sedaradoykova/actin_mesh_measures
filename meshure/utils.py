@@ -76,19 +76,30 @@ def get_resolution(meta: dict, nm: bool=False):
         Metadata as read in from tiff files. Potentially works best with files which have been opened/processed with ImageJ.  
     nm : bool
         Defaults to False, returning resolution in microns. True returns resolution in nm. 
+    Returns
+    ------
+    resolution : dict
+        Maps resolution parameters to their values; `pixel_size` = pixel size in x and y, `px_per_unit` = resolution (inverse of pixel size); 
+        `voxel_size_z` = step size in axial direction of imaging; `unit` = unit of pixel size/resolution. 
     """
+    resolution = {}
     description = [val for val in meta['ImageDescription'][0].split('\n') if val] 
     description = {key: val for key, val in [item.split('=') for item in description]}
-
-    res_x, unit_x = list(chain(*meta['XResolution']))
-    res_y, unit_y = list(chain(*meta['YResolution']))
-    if res_x==res_y and unit_x==unit_y:
-        res_out = res_x/unit_x
-        if nm:
-            res_out = res_out*1e3
+    resolution['unit'] = description['unit']
+    resolution['voxel_size_z'] = float(description['spacing'])
+    px_x, unit_x = list(chain(*meta['XResolution']))
+    px_y, unit_y = list(chain(*meta['YResolution']))
+    if px_x==px_y and unit_x==unit_y:
+        resolution['pixel_size_xy'] = unit_x/px_x
+        resolution['px_per_unit'] = px_x/unit_x
+        if nm and resolution['unit'] == 'micron':
+            resolution['pixel_size_xy'] *= 1e3
+            # resolution['px_per_unit'] *= 1e3 this doesn't change right
+            resolution['voxel_size_z'] *= 1e3 
+            resolution['unit'] = 'nm'
     else: 
         raise ValueError('Resolution is different in x and y.')
-    return res_out
+    return resolution
 
 
 def get_fig_dims(n):

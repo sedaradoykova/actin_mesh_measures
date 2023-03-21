@@ -180,10 +180,10 @@
 - [ ] clean up code graveyard... it's starting to get out of hand
 - [ ] improve documentation
 - [ ] implement proper post-processing functions for analysis results 
-- [ ] divide results per cell type activation time (not just untr / car) ++ basal/cytosolic
+- [X] divide results per cell type activation time (not just untr / car) ++ basal/cytosolic
 - [ ] test data / understand analysis 
-    - ANOVA 
-    - mean or median equivalent diameter size? 
+    - 2-way ANOVA 
+    - mean or median equivalent diameter size? --> take everything and consider distribution 
 - [ ] problem with data: segmentation fails with disrupted networks (where outline is broken)
 
 ## Other considerations 
