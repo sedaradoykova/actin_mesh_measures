@@ -12,29 +12,59 @@ from skimage.measure import profile_line
 from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
 
 
-""" Design considerations: 
-    Currently, the original data is kept and modifications happen on a copy which is internally updated 
-    after methods are called on it with the option of nuking the modifications to restore original object. 
-    A history of all changes implemented (methods called) are recorded in a hidden attribute ._history. 
-
-    TODO: 
-        - [ ] Annotate steps of analysis in docstrings? or separately
-        - [ ] meshwork_size and meshwork_density methods
-        - [ ] add voxel size attribute (i.e. resolution in z) in metadata  
-        - [ ] test steerable second order filter but how?
-        - [ ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
-        - when to return self?   
+""" TODO: 
+    - [ ] Annotate steps of analysis in docstrings? or separately
+    - [ ] test steerable second order filter but how?
+    - [ ] steerable filter: results inconsistent with matlab (see tests/test_steer_gauss*) 
+    - when to return self?   
+    - [ ] finish class docstrings
 """
 
 @dataclass(repr=True)
 class ActImg:
+    """ `ActImg` is a class which helps manipulate fluorescence microscopy images (originally designed for STED images of actin). 
+    The class contains helpers to read in the data and instantiate them as `ActImg` objects (see: `get_actimg()`); 
+    methods to visualise and manipulate the instances, estimating and summarising parameters relating to the actin mesh.   
+    Currently, the original data is kept in the `image_stack` attribute, and modifications happen on a copy which is internally updated 
+    after methods are called on it with the option of nuking (see: `actimg.nuke()`) the modifications to restore original object. 
+    A history of all changes implemented (methods called) are recorded in a hidden attribute `._history`. 
+    `ActImg` instances are temporarily created and manipulated by the `ActImgCollection` class.   
+    ...
+    Attributes
+    ----------
+    image_stack : tuple or np.ndarray (ndim, m, n)
+        A tuple of arrays or a umtidimensional array where axis=0 specifies the frame of an image.  
+    title : str
+        The title of the image, also the filename.
+    shape : tuple=None
+    depth : int=None
+    deconvolved : bool=None
+    resolution : float=None
+    meta : dict=None
+    manipulated_stack : np.array=None
+    manipulated_depth : int=0
+    manipulated_substack_inds : any=None
+    _projected = None
+    _history = None
+    estimated_parameters = {}
+    _binary_images = {}
+    Methods
+    -------
+    visualise(
+        imtype: str='original', ind: int=1, save: bool=False, dest_dir: str=os.getcwd(),
+        colmap: str='inferno', scale_bar: bool=True, bar_locate:str='upper left'
+        ):
+        Description.
+    normalise()
+        Description.
+    ????
+    """
     image_stack: tuple or np.ndarray
     title: str
     shape: tuple=None
     depth: int=None
     deconvolved: bool=None
     resolution: float=None
-    res_units: str=''
     meta: dict=None
     manipulated_stack: np.array=None
     manipulated_depth: int=0
@@ -51,6 +81,7 @@ class ActImg:
         self._projected = None
         self._history = None
         self.estimated_parameters = {}
+        self._binary_images = {}
 
 
     def visualise(
@@ -109,7 +140,9 @@ class ActImg:
         else: 
             raise ValueError('Image type \'{imtype}\' not recognised; imtype must be one of [\'original\', \'manipulated\']'.format(imtype=imtype))
         if scale_bar:
-            scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+            # convert barsize to nm if necessary because scale is specified in nm  
+            barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+            scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
             plt.gca().add_artist(scalebar)
         plt.axis('off')
         if save: 
@@ -178,6 +211,9 @@ class ActImg:
                 ax = plt.subplot(figrows,figcols,n+1)
                 ax.imshow(image, cmap=colmap, vmin=absmin, vmax=absmax)
                 if scale_bar:
+                    # convert barsize to nm if necessary because scale is specified in nm  
+                    barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+                    scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                     ax.add_artist(scalebar)
                 ax.set_axis_off()
@@ -470,7 +506,7 @@ class ActImg:
         save : bool=False
             Plot is displayed but not saved by default. True displays and saves plot. 
         dest_dir : str=os.getcwd()
-            Destination where the plot is saved if save=True. 
+            Destination where the plot is saved if save=True; defaults to current working directory. 
 
         Returns
         -------
@@ -499,7 +535,7 @@ class ActImg:
         img = self.manipulated_stack.copy()
         # create a copy of instance for maximum projection 
         tmp_actimg = ActImg(self.image_stack, title='tmp',shape=self.shape, depth=self.depth, deconvolved=True,
-                              resolution=self.resolution, res_units=self.res_units, meta=self.meta)
+                              resolution=self.resolution, meta=self.meta)
         tmp_actimg.normalise()
         tmp_actimg.z_project_max(max_proj_substack)
         img_max_proj = tmp_actimg.manipulated_stack.copy()
@@ -767,7 +803,7 @@ class ActImg:
         save : bool=False
             Plot is displayed but not saved by default. True displays and saves plot. 
         dest_dir : str=os.getcwd()
-            Destination where the plot is saved if save=True. 
+            Destination where the plot is saved if save=True; defaults to current working directory. 
         return_filters : bool=False
             Optionally, return the oriented filter as a dictionary. 
         Returns
@@ -841,11 +877,12 @@ class ActImg:
             print('Defined as the difference between the filled and unfilled mask.')
 
         self.estimated_parameters['mesh_density_percentage'] = mesh_density
+        self._binary_images['filled_image'] = filled_img.copy()
         self._call_hist('meshwork_density')
         return None
 
 
-    def meshwork_size(self, summary: bool=False, verbose: bool=False, save_vis=False, dest_dir: str=os.getcwd()):
+    def meshwork_size(self, summary: bool=False, verbose: bool=False, visualise=False, save_vis=False, dest_dir: str=os.getcwd()):
         """ Accepts a binary image and returns meshwork size. 
         Uses skimage.measure.regionprops - `equivalent_diameter_area`
         'The diameter of a circle with the same area as the region.'
@@ -855,12 +892,15 @@ class ActImg:
             Optionally, calculate 
         verbose : bool=False
             Optionally, print out summary statistics for mesh size. Must have `summary=True` to print.
+        visualise : bool=False
+            Optionally, visualise the binary, filled, inverted, and labelled images. 
         save_vis : bool=False
             Optionally, save a plot with the results of the filling and labelling of the binary image. 
         Returns
         -------
         self.estimated_parameters['equivalent_diameters'] : pandas DataFrame
             A numpy.ndarray containing all label equivalent_diameter_area properties from `measure.regionprops()`. 
+            The default unit of the equivalent diameters will be the unit in self.resolution['unit'], which defaults to nm.
         self.estimated_parameters['mesh_size_summary'] : dict, optional
             A dictionary mapping the mean, 95% CI of the mean, median, and IQR of the `equivalent_diameters` above.
         Raises
@@ -878,9 +918,9 @@ class ActImg:
         img = self.manipulated_stack.copy()
         img_inverted = (img==0).astype('int')
         labels = measure.label(img_inverted)
-        equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))
-
+        equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))*self.resolution['pixel_size_xy']
         self.estimated_parameters['equivalent_diameters'] = equiv_diams.iloc[:,0].values.tolist() 
+        self._binary_images['inverted_image'] = img_inverted.copy()
         self._call_hist('meshwork_size')
 
         if summary: 
@@ -896,11 +936,14 @@ class ActImg:
             print(f'median mesh size:      {median:.3f}')
             print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
         
-        if save_vis: 
-            # close any very small holes to ensure uniformity 
-            closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
-            # fill any holes in closed image
-            filled_img = morphology.binary_fill_holes(closed_img)
+        if visualise or save_vis: 
+            try:
+                filled_img = self._binary_images['filled_image'].copy()
+            except KeyError: 
+                # close any very small holes to ensure uniformity 
+                closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
+                # fill any holes in closed image
+                filled_img = morphology.binary_fill_holes(closed_img)
             plt.subplot(2,2,1)
             plt.imshow(img, cmap='gray')
             plt.title('binary image')
@@ -919,10 +962,13 @@ class ActImg:
             plt.axis('off')
             plt.tight_layout()
 
-            imtitle = f'{self.title.split(".")[0]}_mesh_segmentation.png'
-            dest = os.path.join(dest_dir, imtitle)
-            plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
-            plt.close()
+            if save_vis: 
+                imtitle = f'{self.title.split(".")[0]}_mesh_segmentation.png'
+                dest = os.path.join(dest_dir, imtitle)
+                plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+                plt.close()
+            else: 
+                plt.show()
         return None
 
 
@@ -946,7 +992,7 @@ class ActImg:
         Arguments
         ---------
         dest_dir : str or Path
-            Path where the ActImg object should be saved in `.pkl` format.   
+            Path where the ActImg object should be saved in `.pkl` format; defaults to current working directory.   
         Returns
         -------
             A pickle file (`.pkl`) with original image title in filename. 
@@ -965,17 +1011,17 @@ class ActImg:
         Arguments
         ---------
         dest_dir : str or Path
-            Path of destination where the JSON file should be saved.  
+            Path of destination where the JSON file should be saved; defaults to current working directory.  
         Rreturns
         --------
-            A JSON file with the estimated parameters in the ActImg object.
+            A JSON file with the `estimated parameters` in the ActImg object and the resolution-related parameters from `self.resolution`.
         """
-        json_obj = json.dumps(self.estimated_parameters)
+        json_obj = json.dumps({'estimated_parameters': self.estimated_parameters,
+                               'resolution': self.resolution})
         file = 'actimg_params_'+self.title.split(".")[0]+'.json' 
         with open(os.path.join(dest_dir, file), 'w') as f:
            f.write(json_obj)
         return None
-
 
 
 
@@ -1009,14 +1055,15 @@ def get_ActImg(image_name: str, image_dir: str):
     img, title = get_image_stack(os.path.join(image_dir, image_name), verbose=False)
     shape = img[0].shape
     depth = len(img)
-    if depth == 1: 
+    if depth == 1:      # extract from nested tuple
         img = img[0]
     devonv = True if 'deconv' in image_name else False
-    meta = get_meta(os.path.join(image_dir, image_name))
-    resolut = get_resolution(meta)
-    return ActImg(np.asarray(img), title, shape, depth, devonv, resolut, meta)
+    metadata = get_meta(os.path.join(image_dir, image_name))
+    resolut = get_resolution(metadata.copy(), nm=True)
+    return ActImg(image_stack=np.asarray(img), title=title, shape=shape, depth=depth, deconvolved=devonv, 
+                  resolution=resolut, meta=metadata)
 
-    
+
 def load_ActImg(obj_path: str):
     """ Imports a saved ActImg object. 
     Arguments
