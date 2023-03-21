@@ -9,7 +9,7 @@ from meshure.actimg_collection import ActImgCollection, list_files_dir_str
 ## 15/03 Analysis completed in 00:00:57.
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data")
-focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_CARs.csv')
+focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_CARs_noCAR_untr.csv')
 only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_imageJ']
 ## OLD Analysis completed in 00:07:47.
 # 15/03 Analysis completed in 00:10:28.
@@ -99,165 +99,17 @@ sample_data.focal_planes.Type.unique()
 
 
 ## post processing of parameters 
-import json
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-
-# sample_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\sample_data\\', '_results_CARs'), 
-#                 os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\sample_data\\', '_results_Untr')]
-deconv_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_CARs'),
-              os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_Untr')]
-
-# get filenames and filepaths 
-filenames = []
-filepaths = []
-for rpath in deconv_paths:
-    names, paths = list_files_dir_str(rpath)
-    for lab in ['basal', 'cytosolic']:
-        #[paths[lab]]
-        filepaths += [os.path.join(paths[lab], n) for n in names[lab] if 'json' in n]
-        filenames += [n for n in names[lab] if 'json' in n]
-
-
-
-# open json and extract mean and median mesh sizes
-respd = pd.DataFrame(columns=['mesh_type', 'mean', 'median'])
-for filepath, filename in zip(filepaths, filenames):
-    mtype = "_".join(filepath.split('\\')[-3:-1]).replace("_results_", '')
-    with open(filepath, 'r') as f: 
-        data = json.load(f)
-    respd.loc[filepath, 'mesh_type'] = mtype
-    respd.loc[filepath,'mean'] = data['mesh_size_summary']['mean']
-    respd.loc[filepath,'median'] = data['mesh_size_summary']['median']
-
-
-#respd.set_index()
-
-# rotate horizontally 
-respd_pv = respd.pivot(columns='mesh_type')
-
-
-# plotting 
-respd.plot(x='mesh_type', y='mean',kind='scatter', subplots=True)
-plt.show()
-
-
-# categorial scatter plot by mesh and cell type
-sns.catplot(x='mesh_type', y='mean', data=respd, hue='mesh_type')
-plt.show()
-
-
-respd_long = respd.melt(id_vars=['mesh_type'])
-
-g = sns.FacetGrid(respd_long, col='variable', hue='mesh_type')
-g.map(sns.scatterplot, 'mesh_type', 'value', alpha=.7)
-g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh Type')
-axes = g.axes.flatten()
-axes[0].set_title('Mean mesh size')
-axes[1].set_title('Median mesh size')
-axes[0].set_ylabel('Mesh Size (equiv. diameter, px)')
-for ax in axes:
-    ax.set_xlabel('Mesh Type')
-plt.show()
-
-
-
-respd_long = respd_long.astype({'mesh_type': 'category', 'variable': 'category', 'value': 'float64'})
-
-
-
-
-import scipy.stats as stats
-# stats f_oneway functions takes the groups as input and returns ANOVA F and p value
-cars_basal = respd_long.value[(respd_long.variable=='median') & (respd_long.mesh_type=='CARs_basal')]
-cars_cytosolic = respd_long.value[(respd_long.variable=='median') & (respd_long.mesh_type=='CARs_cytosolic')]
-untr_basal = respd_long.value[(respd_long.variable=='median') & (respd_long.mesh_type=='Untr_basal')]
-untr_cytosolic = respd_long.value[(respd_long.variable=='median') & (respd_long.mesh_type=='Untr_cytosolic')]
-
-fvalue, pvalue = stats.f_oneway(cars_basal, cars_cytosolic, untr_basal, untr_cytosolic)
-print(f'F value:  {fvalue:.4f},    p value:  {pvalue:.6f}')
-
-
-g = sns.violinplot(x='variable', y='value', data=respd_long, hue='mesh_type', alpha=0.7)
-g.set_xlabel('Measurement type')
-g.set_ylabel('Mesh size (equiv. diameter, px)')
-g.set_title(f'one-way ANOVA of medians (F_3 = {fvalue:.4f}, p = {pvalue:.6f})')
-plt.legend(title='Mesh Type', loc='upper right')
-plt.show()
-
-
-
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-# Ordinary Least Squares (OLS) model
-model = ols('value ~ C(mesh_type)', data=respd_long[respd_long.variable=='median']).fit()
-anova_table = sm.stats.anova_lm(model, typ=2)
-anova_table
-
-
 
 
 #### GETTING 305964 TABLES
 
-# basal Untr
-
-deconv_paths = [os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_CARs'),
-              os.path.join(os.getcwd(), 'actin_meshwork_analysis\\process_data\\deconv_data\\', '_results_Untr')]
-
-
-names, paths = list_files_dir_str(deconv_paths[1])
-filepaths = [os.path.join(paths['basal'], n) for n in names['basal'] if 'json' in n]
-filenames = [n for n in names['basal'] if 'json' in n]
-len(filepaths)
-len(filenames)
-
-# 1 min untransduced (basal)
-
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-# get filenames in csv 
-min1_fnames = sample_data.focal_planes['File name'].loc[(sample_data.focal_planes['File name'].str.contains('1min')) & 
-                                                        sample_data.focal_planes['Type'].str.contains('Untrans')]
-# get 1 min filepaths from basal filepaths 
-min1_fpaths = [f for f in filepaths if '1min' in f]
-
-len(min1_fpaths) == min1_fnames.shape[0]
-
-(min1_fpaths[0].split("_params_")[-1].replace(".json", ""))
-
-min1_Untr_basal_diams = []
-min1_Untr_basal_dens = []
-for filepath in min1_fpaths:
-#    mtype = "_".join(filepath.split('\\')[-3:-1]).replace("_results_", '')
-    with open(filepath, 'r') as file: 
-        data = json.load(file)
-    min1_Untr_basal_diams += data['equivalent_diameters']
-    min1_Untr_basal_dens += [data['mesh_density_percentage']]
-
-len(min1_Untr_basal_diams)
-
-df_min1_Untr_basal_dens = pd.DataFrame({'file_name': min1_fnames,
-                                         'mesh_density_percentage': min1_Untr_basal_dens})
-df_min1_Untr_basal_diams = pd.DataFrame({'equiv_diameters': min1_Untr_basal_diams})
-
-
-sns.histplot(x='equiv_diameters', data=df_min1_Untr_basal_diams)
-plt.show()
-
-
-sns.violinplot(y='mesh_density_percentage', data=df_min1_Untr_basal_dens, orient='h')
-plt.show()
-
-sns.violinplot(y='equiv_diameters', data=df_min1_Untr_basal_diams, orient='h')
-plt.show()
-
-
+# respd_pv = respd.pivot(columns='mesh_type')
+# respd_long = respd.melt(id_vars=['mesh_type'])
 
 
 ### automate 
@@ -436,3 +288,14 @@ plt.show()
 
 df_mesh_density.to_csv('all_mesh_densities_not_checked.csv')
 df_equiv_diams.to_csv('all_equivalent_diameters_not_checked.csv')
+
+
+# ANOVA
+
+# import statsmodels.api as sm
+# from statsmodels.formula.api import ols
+# # Ordinary Least Squares (OLS) model
+# model = ols('value ~ C(mesh_type)', data=respd_long[respd_long.variable=='median']).fit()
+# anova_table = sm.stats.anova_lm(model, typ=2)
+# anova_table
+

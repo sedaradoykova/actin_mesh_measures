@@ -45,9 +45,10 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
 
-mu, sigma = actimg.threshold_dynamic(sigma_factor=0, return_mu_sigma=True)
+mu, sigma = actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=True)
 actimg.visualise('manipulated', colmap='gray')
-
+actimg.meshwork_density()
+actimg.meshwork_size(save_vis=True)
 
 img = np.copy(actimg.manipulated_stack)
 img_inverted = (img==0).astype('int')
@@ -212,19 +213,20 @@ actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[3,4],visualise=False)
 actimg.z_project_min()
 
-actimg._threshold_preview_cases(factors=[-0.25,0,0.25], max_proj_substack=[3,4])
+#actimg._threshold_preview_cases(factors=[-0.25,0,0.25], max_proj_substack=[3,4])
 
 actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
-actimg.visualise_stack('manipulated',colmap='gray')
+#actimg.visualise_stack('manipulated',colmap='gray')
 
 
 actimg.meshwork_density(True)
-actimg.meshwork_size(True, True)
+actimg.meshwork_size(True, False, True)
 
+
+actimg.resolution
 actimg.estimated_parameters.keys()
 actimg.estimated_parameters['mesh_size_summary']
 actimg.estimated_parameters['aggregated_line_profiles']
-actimg.estimated_parameters['equivalent_diameters'][0]
 
 
 actimg.save_estimated_params()
