@@ -34,12 +34,14 @@ class ActImgCollection:
                    'vis_stack': False},
             '06': {'func': 'meshwork_size', 'params': "summary=True,verbose=False,save_vis=True,dest_dir=self.parameters['dest_dir']", 
                    'vis_stack': False},
-            '07': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
+            '07': {'func': 'surface_area', 'params': "verbose=False", 
                    'vis_stack': False},
-            '08': {'func': 'nuke', 'params': None, 'vis_stack': False},
-            '09': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
+            '08': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
+                   'vis_stack': False},
+            '09': {'func': 'nuke', 'params': None, 'vis_stack': False},
+            '10': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
                    'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '10': {'func': 'nuke', 'params': None,  'vis_stack': False}
+            '11': {'func': 'nuke', 'params': None,  'vis_stack': False}
             }
 
 
