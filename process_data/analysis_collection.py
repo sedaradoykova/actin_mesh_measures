@@ -27,7 +27,7 @@ sample_data.only_subdirs = only_subdirs
 sample_data.parametrise_pipeline(*parameters)
 #sample_data.parametrise_pipeline(None, None, theta_x6, 2, None) ### for background threshold
 
-sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
+##sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
 
 
 #### some interactive features to be included further 
@@ -89,6 +89,12 @@ CAR_UNTR        1min     None
                 8min     3
                  Total   6
 
+WITHOUT THE DODGY AND UNTR 
+CAR     1min    13      Untransduced    1min     11
+        3min    14                      3min     6
+        8min    14                      8min     5
+        Total:  41                      Total:   22
+
 """
 
 # for labelled cars, postprocessing will be required  
@@ -140,29 +146,30 @@ for (celltype, respath) in zip(['untrans', 'car'], deconv_paths):
             #    mtype = "_".join(filepath.split('\\')[-3:-1]).replace("_results_", '')
                 with open(filepath, 'r') as file: 
                     data = json.load(file)
-                min_Untr_basal_diams += data['equivalent_diameters']
-                min_Untr_basal_dens += [data['mesh_density_percentage']]
+                min_Untr_basal_diams += data['estimated_parameters']['equivalent_diameters']
+                min_Untr_basal_dens += [data['estimated_parameters']['mesh_density_percentage']]
 
                 name = (filepath.split("_params_")[-1].replace(".json", "")) 
-                n = len(data['equivalent_diameters'])
+                n = len(data['estimated_parameters']['equivalent_diameters'])
                 cell_type_pd = sample_data.focal_planes['Type'].loc[(sample_data.focal_planes['File name'].str.contains(name)) & 
                                                                     sample_data.focal_planes['Type'].str.contains(celltype, case=False)].tolist()
 
-                mean, std_dev = data["aggregated_line_profiles"].values()
+                mean, std_dev = data['estimated_parameters']["aggregated_line_profiles"].values()
+                surface_area = data['estimated_parameters']
 
                 df_equiv_diams = pd.concat([df_equiv_diams,
                                                 pd.DataFrame({'file_name': [name]*n,
                                                 'time': [time]*n,
                                                 'cell_type': cell_type_pd*n,
                                                 'mesh_type': [meshtype]*n,
-                                                'equiv_diameters': data['equivalent_diameters']})],
+                                                'equiv_diameters': data['estimated_parameters']['equivalent_diameters']})],
                                                 ignore_index=True, sort=False)
                 df_mesh_density = pd.concat([df_mesh_density,
                                                 pd.DataFrame({'file_name': [name],
                                                 'time': [time],
                                                 'cell_type': cell_type_pd,
                                                 'mesh_type': [meshtype],
-                                                'mesh_density': [data['mesh_density_percentage']]})],
+                                                'mesh_density': [data['estimated_parameters']['mesh_density_percentage']]})],
                                                 ignore_index=True, sort=False)
                 df_threshold_parameters = pd.concat([df_threshold_parameters,
                                                 pd.DataFrame({'file_name': [name],
@@ -183,12 +190,148 @@ df_mesh_density = df_mesh_density.astype({'file_name': 'category','time': 'categ
 df_threshold_parameters = df_threshold_parameters.astype({'file_name': 'category','time': 'category', 'cell_type': 'category',
                                                           'mesh_type': 'category', 'mean': 'float64', 'std_dev': 'float64'})
 
+### CONVERT CARs to CAR 
+
+for x in [df_equiv_diams, df_mesh_density, df_threshold_parameters]:
+    x['cell_type'] = ['Untransduced' if 'untransd' in entry.lower() else 'CAR' for entry in x['cell_type']]
+
+
+
+# segmentation success
+
+sample_data.focal_planes[['Basal_mesh', 'Cytosolic_mesh']].value_counts()
+sample_data.focal_planes['Basal_mesh'].value_counts()
+sample_data.focal_planes['Cytosolic_mesh'].value_counts()
+
+sample_data.focal_planes[['Basal_mesh', 'Cytosolic_mesh', 'Type']].value_counts()
+
+"""TOTAL = 63
+Basal_mesh  Cytosolic_mesh
+    v           v                 45
+    x           v                  9
+    v           x                  4
+    x           x                  5
+
+    Basal_mesh      Cytosolic_mesh
+v           49      54
+x           14      9
+
+Basal_mesh  Cytosolic_mesh  Type        
+v           v               CAR             30      = 18+7+5 (CAR_dual+CAR_antiCD19+CAR_antiCD22)
+                            Untransduced    15
+
+x           v               CAR             5       = 4+1 (CAR_dual+CAR_antiCD22)
+                            Untransduced    4
+
+v           x               CAR              3      = 2+1 (CAR_antiCD19_CAR_dual)     
+                            Untransduced     1
+
+x           x               CAR              3      = 1+1+1 (CAR_antiCD19+CAR_antiCD22+CAR_dual)
+                            Untransduced     2
+"""
+
+sample_data.focal_planes.loc[(sample_data.focal_planes['Basal_mesh']=='x') | 
+                             (sample_data.focal_planes['Cytosolic_mesh']=='x')][['File name', 'Type', 'Basal', 'Cytosolic']]
+
+
+
+
+
+
+#### PLOT EQUIV DIAMETERS
+
+# scatter 
+g = sns.FacetGrid(df_equiv_diams, col='time')
+g.map_dataframe(sns.stripplot,'cell_type', 'equiv_diameters', hue='mesh_type', 
+                alpha=0.75, dodge=True, palette='muted')
+g.set_xlabels('')
+g.set_ylabels('Mesh density size (equivalent diameter, nm)')
+g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+plt.show()
+
+# box + scatter
+g = sns.FacetGrid(df_equiv_diams, col='time', col_order=['1min','3min','8min'])
+g.map_dataframe(sns.barplot, 'cell_type', 'equiv_diameters', hue='mesh_type', dodge=True, palette='muted',
+                estimator=np.median, errorbar=('pi',50), capsize=0.2)
+g.map_dataframe(sns.stripplot,'cell_type', 'equiv_diameters', hue='mesh_type', 
+                alpha=0.5, dodge=True, palette='dark:gray')
+g.set_xlabels('')
+g.set_ylabels('Mesh density size (equivalent diameter, nm)')
+g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+plt.show()
+
+
+
+
+### PLOT MESH DENSITY 
+
+# scatter 
+g = sns.FacetGrid(df_mesh_density, col='time')
+g.map_dataframe(sns.stripplot,'cell_type', 'mesh_density', hue='mesh_type', 
+                alpha=0.75, dodge=True, palette='muted')
+g.set_xlabels('')
+g.set_ylabels('Mesh density (%)')
+g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+plt.show()
+
+# box + scatter
+g = sns.FacetGrid(df_mesh_density, col='time', col_order=['1min','3min','8min'])
+g.map_dataframe(sns.barplot, 'cell_type', 'mesh_density', hue='mesh_type', dodge=True, palette='muted',
+                estimator=np.median, errorbar=('pi',50), capsize=0.2)
+g.map_dataframe(sns.stripplot,'cell_type', 'mesh_density', hue='mesh_type', 
+                alpha=0.5, dodge=True, palette=['black']*2)
+g.set_xlabels('')
+g.set_ylabels('Mesh density (%)')
+g.add_legend(bbox_to_anchor=(0.9, 0.9),title='Mesh type')
+plt.show()
+
+
+
+
+
+### plot threshold values
+
+# mean 
+g = sns.FacetGrid(df_threshold_parameters, col='time', col_order=['1min','3min','8min'])
+g.map_dataframe(sns.barplot, 'cell_type', 'mean', hue='mesh_type', dodge=True, palette='muted',
+                estimator=np.median, errorbar=('pi',50), capsize=0.2)
+g.map_dataframe(sns.stripplot,'cell_type', 'mean', hue='mesh_type', 
+                alpha=0.5, dodge=True, palette=['black']*2)
+g.set_xlabels('')
+g.set_ylabels('Threshold value: mean')
+g.add_legend(loc='upper right',title='Mesh type')
+plt.show()
+
+
+# std_dev 
+g = sns.FacetGrid(df_threshold_parameters, col='time', col_order=['1min','3min','8min'])
+g.map_dataframe(sns.barplot, 'cell_type', 'std_dev', hue='mesh_type', dodge=True, palette='muted',
+                estimator=np.median, errorbar=('pi',50), capsize=0.2)
+g.map_dataframe(sns.stripplot,'cell_type', 'std_dev', hue='mesh_type', 
+                alpha=0.5, dodge=True, palette=['black']*2)
+g.set_xlabels('')
+g.set_ylabels('Threshold value: standard deviation')
+g.add_legend(loc='upper right',title='Mesh type')
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+#### all cell types
 
 
 #### PLOT EQUIV DIAMS 
 
 plt.figure(figsize=(8,6))
-sns.stripplot(x='cell_type', y='equiv_diameters', data=df_equiv_diams, hue='time', color="gray", edgecolor="black", alpha=0.1, dodge=True)
+sns.stripplot(x='cell_type', y='equiv_diameters', data=df_equiv_diams, hue='cell_type', color="gray", edgecolor="black", alpha=0.1, dodge=True)
 sns.violinplot(x='cell_type', y='equiv_diameters', data=df_equiv_diams, hue='time', dodge=True, alpha=0.75)
 plt.show()
 

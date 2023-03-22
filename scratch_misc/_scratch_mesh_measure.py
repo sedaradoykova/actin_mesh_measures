@@ -243,13 +243,10 @@ act2.manipulated_depth
 
 
 
-# get mesh size 
-# convert units 
-# integrate into pipeline 
-# record mesh size 
+
+# TODO
 # change pipeline to sort into folders based on cell type specified in focal_planes 
 # preview results 
-# add depth 
 
 
 img = np.copy(actimg.manipulated_stack)
@@ -265,6 +262,9 @@ difference_filled = ~filled_image+img
 labels = measure.label(img_inverted)#, connectivity=0.5)
 plt.imshow(labels, cmap='tab20c_r'); plt.show();
 
+
+
+# Voronoi diagrams
 
 import pandas as pd
 centroids = pd.DataFrame(measure.regionprops_table(labels, img, properties=['centroid']))
