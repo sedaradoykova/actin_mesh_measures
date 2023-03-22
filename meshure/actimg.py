@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from matplotlib_scalebar.scalebar import ScaleBar
 from scipy import stats
 from scipy.optimize import curve_fit
-from scipy.ndimage import correlate, morphology
-from skimage import measure 
+from scipy.ndimage import correlate, morphology, binary_closing
+from skimage import measure
+from skimage import morphology as ski_morph 
 from skimage.measure import profile_line
 from meshure.utils import get_image_stack, get_meta, get_resolution, get_fig_dims
 
@@ -882,13 +883,15 @@ class ActImg:
         self._call_hist('meshwork_density')
         return None
 
-    def surface_area(self, verbose=False):
+    def surface_area(self, verbose=False, visualise=False):
         """ Accepts a binary image and returns the segmented cell surface area. Recommended use with basal membrane manipulation.
         ...
         Arguments
         ---------
         verbose : bool=False
             Optionally, print out mesh density percentage and definition. 
+        visualise : bool=False
+            Optionally, visualise the segmented cell surface against the segmented mesh.  
         Returns
         ------
         self.estimated_parameters['surface_area'] : float
@@ -900,18 +903,36 @@ class ActImg:
         """
         if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
             raise ValueError('Input image is not binary.')
-        
-        try:
-            filled_img = self._binary_images['filled_image'].copy()
-        except KeyError: 
-            img = self.manipulated_stack.copy()
-            # close any very small holes to ensure uniformity 
-            closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
-            # fill any holes in closed image
-            filled_img = morphology.binary_fill_holes(closed_img)
-            self._binary_images['filled_image'] = filled_img.copy()
 
-        surface_area = np.sum(filled_img)*(self.resolution['pixel_size_xy']**2)
+        img = np.copy(self.manipulated_stack)
+        # close
+        closed_image = binary_closing(img, structure = np.ones((5,5))) # compare    5,5   7,7   10,10   15,15   30,30
+        # dilate serially
+        dilated = ski_morph.dilation(closed_image).astype('int')
+        dilated = ski_morph.dilation(dilated).astype('int')
+        dilated = ski_morph.dilation(dilated).astype('int')
+        # fill
+        filled_image = morphology.binary_fill_holes(dilated)
+        # find contour
+        contours = measure.find_contours(filled_image)
+        ind_max = np.argmax([len(x) for x in contours])
+        cont_img = np.zeros(filled_image.shape)
+        cont_img[np.ceil(contours[ind_max]).astype('int')[:,0], np.ceil(contours[ind_max]).astype('int')[:,1]] = 1
+        # dilate contour 
+        dilated_cont = ski_morph.dilation(cont_img).astype('int')
+        # fill contour 
+        filled_cont = morphology.binary_fill_holes(dilated_cont).astype('int')
+        # erode serially (equal to no. dilations)
+        eroded_cont = ski_morph.binary_erosion(filled_cont).astype('int')
+        eroded_cont = ski_morph.dilation(eroded_cont).astype('int')
+        eroded_cont = ski_morph.dilation(eroded_cont).astype('int')
+
+        if visualise: 
+            plt.imshow(img)
+            plt.imshow(eroded_cont, cmap='gray', alpha=0.5)
+            plt.show()
+
+        surface_area = np.sum(eroded_cont)*(self.resolution['pixel_size_xy']**2)
 
         if verbose: 
             print(f'Segmented cell surface area is {surface_area:.0f} {self.resolution["unit"]}^2.')
