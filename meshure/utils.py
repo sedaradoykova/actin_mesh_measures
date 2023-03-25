@@ -83,23 +83,26 @@ def get_resolution(meta: dict, nm: bool=False):
         `voxel_size_z` = step size in axial direction of imaging; `unit` = unit of pixel size/resolution. 
     """
     resolution = {}
-    description = [val for val in meta['ImageDescription'][0].split('\n') if val] 
-    description = {key: val for key, val in [item.split('=') for item in description]}
-    resolution['unit'] = description['unit']
-    resolution['voxel_size_z'] = float(description['spacing'])
-    px_x, unit_x = list(chain(*meta['XResolution']))
-    px_y, unit_y = list(chain(*meta['YResolution']))
-    if px_x==px_y and unit_x==unit_y:
-        resolution['pixel_size_xy'] = unit_x/px_x
-        resolution['px_per_unit'] = px_x/unit_x
-        if nm and resolution['unit'] == 'micron':
-            resolution['pixel_size_xy'] *= 1e3
-            # resolution['px_per_unit'] *= 1e3 this doesn't change right
-            resolution['voxel_size_z'] *= 1e3 
-            resolution['unit'] = 'nm'
-    else: 
-        raise ValueError('Resolution is different in x and y.')
-    return resolution
+    try:
+        description = [val for val in meta['ImageDescription'][0].split('\n') if val] 
+        description = {key: val for key, val in [item.split('=') for item in description]}
+        resolution['unit'] = description['unit']
+        resolution['voxel_size_z'] = float(description['spacing'])
+        px_x, unit_x = list(chain(*meta['XResolution']))
+        px_y, unit_y = list(chain(*meta['YResolution']))
+        if px_x==px_y and unit_x==unit_y:
+            resolution['pixel_size_xy'] = unit_x/px_x
+            resolution['px_per_unit'] = px_x/unit_x
+            if nm and resolution['unit'] == 'micron':
+                resolution['pixel_size_xy'] *= 1e3
+                # resolution['px_per_unit'] *= 1e3 this doesn't change right
+                resolution['voxel_size_z'] *= 1e3 
+                resolution['unit'] = 'nm'
+        else: 
+            raise ValueError('Resolution is different in x and y.')
+        return resolution
+    except: 
+        print('Problems reading metadata.')
 
 
 def get_fig_dims(n):
