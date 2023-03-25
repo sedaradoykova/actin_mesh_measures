@@ -80,10 +80,11 @@ class ActImg:
             raise TypeError("Title must be a string.")
         if not isinstance(self.deconvolved, bool):
             raise TypeError("Deconvolved must be a boolean.")
+        self.estimated_parameters = {}
         self._projected = None
         self._history = None
-        self.estimated_parameters = {}
         self._binary_images = {}
+        self._log = {}
 
 
     def visualise(
@@ -521,13 +522,14 @@ class ActImg:
         if (mean and not isinstance(mean, float)) or (std_dev and not isinstance(std_dev, float)):
             raise TypeError('Mean and std_dev must both be floats.')
         if mean is None and std_dev is None:
-            try: 
-                self.estimated_parameters['aggregated_line_profiles'] is not None
+            try:
                 mean, std_dev = self.estimated_parameters['aggregated_line_profiles'].values()
             except KeyError:
                 self._aggregate_line_profiles(line_prof_coords=None)
                 mean, std_dev = self.estimated_parameters['aggregated_line_profiles'].values()
                 #raise AttributeError('ActImg.estimated_parameters mean and std_dev (key=`aggregated_line_profiles`) not found, please specify (mean, std_dev) or call `ActImg.threshold_dynamic()`.')
+            finally: 
+                pass
         try: 
             factors = np.array(factors)
         except: 
@@ -848,6 +850,78 @@ class ActImg:
             return None
             
 
+    def surface_area(self, verbose=False, visualise=False):
+        """ Accepts a binary image and returns the segmented cell surface area with associated units. 
+        Recommended use with basal membrane manipulation.
+        Note: the algorithm uses serial dilations to include the periphery of the cell even if the cell boundary is discontinuous.
+        The dilations are followed by an equivalent number of serial erosions to avoid overestimating the cell area. 
+        Note: it is assumed that the largest object in the field of view is the cell which is to be segmented.
+        ...
+        Arguments
+        ---------
+        verbose : bool=False
+            Optionally, print out mesh density percentage and definition. 
+        visualise : bool=False
+            Optionally, visualise the segmented cell surface against the segmented mesh.  
+        Returns
+        ------
+        self.estimated_parameters['surface_area'] : float
+            The segmented cell surface area, defined as the sum of the labelled pixels * size of one pixel ($`pixel_size_xy`^2$).
+        Raises
+        ------
+        ValueError
+            If the manipulated_stack is not a binary array with values [0,1].
+        """
+        if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
+            raise ValueError('Input image is not binary.')
+
+        img = self.manipulated_stack.copy()
+        # close with small 2x2 structure (ensure connectivity) 
+        closed_image = binary_closing(img, structure = np.ones((2,2))) 
+        # dilate serially (ensure connectivity)
+        dilated = ski_morph.dilation(closed_image).astype('int')
+        dilated = ski_morph.dilation(dilated).astype('int')
+        dilated = ski_morph.dilation(dilated).astype('int')
+        # fill to segment prelim cell surface
+        filled_image = morphology.binary_fill_holes(dilated)
+        # find contour to get cell edges
+        contours = measure.find_contours(filled_image)
+        ind_max = np.argmax([len(x) for x in contours])
+        cont_img = np.zeros(filled_image.shape)
+        cont_img[np.ceil(contours[ind_max]).astype('int')[:,0], np.ceil(contours[ind_max]).astype('int')[:,1]] = 1
+        # dilate contour to avoid discontinuity within self
+        dilated_cont = ski_morph.dilation(cont_img).astype('int')
+        # fill contour to segment final cell edges
+        filled_cont = morphology.binary_fill_holes(dilated_cont).astype('int')
+        # erode serially (equal to no. dilations, avoid overestimation)
+        eroded_cont = ski_morph.binary_erosion(filled_cont).astype('int')
+        eroded_cont = ski_morph.binary_erosion(eroded_cont).astype('int')
+        eroded_cont = ski_morph.binary_erosion(eroded_cont).astype('int')
+
+        if visualise:
+            plt.imshow(img)
+            plt.imshow(eroded_cont, cmap='gray', alpha=0.5)
+            plt.show()
+
+        surface_area, unit = np.sum(eroded_cont)*(self.resolution['pixel_size_xy']**2), self.resolution['unit']
+
+        if surface_area < np.sum(img)*(self.resolution['pixel_size_xy']**2) - surface_area:
+            self._update_log('failed_segmentation', {'imtitle': self.title, 'parameter': 'surface_area'})
+            if verbose: 
+                print(f'Image not segmented well: {self.title}')
+        else: 
+            if (self.resolution['pixel_size_xy'] == 'micron') | (surface_area > 1e4):
+                surface_area, unit = surface_area/1e6, 'um'
+
+            self.estimated_parameters['surface_area'] = {'area': surface_area, 'unit': unit}
+            self._call_hist('surface_area')
+            self._binary_images['cell_surface'] = eroded_cont.copy()
+
+            if verbose: 
+                print(f'Segmented cell surface area ({self.resolution["unit"]}^2) is {surface_area:.0f}.')
+                print('Defined as the difference between the filled and unfilled mask.')
+        return None
+
     def meshwork_density(self, verbose=False):
         """ Accepts a binary image and returns the meshwork density (percentage).
         ...
@@ -868,79 +942,27 @@ class ActImg:
             raise ValueError('Input image is not binary.')
         
         img = self.manipulated_stack.copy()
-        # close any very small holes to ensure uniformity 
-        closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
-        # fill any holes in closed image
-        filled_img = morphology.binary_fill_holes(closed_img)
+        try:
+            cell_coords = np.nonzero(self._binary_images['cell_surface'])
+        except: 
+            self.surface_area()
+            cell_coords = np.nonzero(self._binary_images['cell_surface'])
+        finally: 
+            # redefine density as difference between filled and unfilled surface, discard rest  
+            # close any very small holes to ensure uniformity 
+            closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
+            # fill any holes in closed image
+            filled_img = morphology.binary_fill_holes(closed_img)
 
-        mesh_density = ( np.sum(filled_img) - np.sum(img) )*100 / np.sum(filled_img)
-        if verbose: 
-            print(f'The percentage mesh density is  {mesh_density:.2f} %')
-            print('Defined as the difference between the filled and unfilled mask.')
+            mesh_density = np.sum(img)*100 / np.sum(filled_img)
+            if verbose: 
+                print(f'The percentage mesh density is  {mesh_density:.2f} %')
+                print('Defined as the difference between the filled and unfilled mask.')
 
-        self.estimated_parameters['mesh_density_percentage'] = mesh_density
-        self._binary_images['filled_image'] = filled_img.copy()
-        self._call_hist('meshwork_density')
-        return None
+            self.estimated_parameters['mesh_density_percentage'] = mesh_density
+            self._call_hist('meshwork_density')
+            return None
 
-    def surface_area(self, verbose=False, visualise=False):
-        """ Accepts a binary image and returns the segmented cell surface area. Recommended use with basal membrane manipulation.
-        ...
-        Arguments
-        ---------
-        verbose : bool=False
-            Optionally, print out mesh density percentage and definition. 
-        visualise : bool=False
-            Optionally, visualise the segmented cell surface against the segmented mesh.  
-        Returns
-        ------
-        self.estimated_parameters['surface_area'] : float
-            The segmented cell surface area, defined as the sum of the labelled pixels * size of one pixel ($`pixel_size_xy`^2$).
-        Raises
-        ------
-        ValueError
-            If the manipulated_stack is not a binary array with values [0,1].
-        """
-        if not (np.sort(np.unique(self.manipulated_stack)) == [0,1]).all():
-            raise ValueError('Input image is not binary.')
-
-        img = np.copy(self.manipulated_stack)
-        # close
-        closed_image = binary_closing(img, structure = np.ones((5,5))) # compare    5,5   7,7   10,10   15,15   30,30
-        # dilate serially
-        dilated = ski_morph.dilation(closed_image).astype('int')
-        dilated = ski_morph.dilation(dilated).astype('int')
-        dilated = ski_morph.dilation(dilated).astype('int')
-        # fill
-        filled_image = morphology.binary_fill_holes(dilated)
-        # find contour
-        contours = measure.find_contours(filled_image)
-        ind_max = np.argmax([len(x) for x in contours])
-        cont_img = np.zeros(filled_image.shape)
-        cont_img[np.ceil(contours[ind_max]).astype('int')[:,0], np.ceil(contours[ind_max]).astype('int')[:,1]] = 1
-        # dilate contour 
-        dilated_cont = ski_morph.dilation(cont_img).astype('int')
-        # fill contour 
-        filled_cont = morphology.binary_fill_holes(dilated_cont).astype('int')
-        # erode serially (equal to no. dilations)
-        eroded_cont = ski_morph.binary_erosion(filled_cont).astype('int')
-        eroded_cont = ski_morph.dilation(eroded_cont).astype('int')
-        eroded_cont = ski_morph.dilation(eroded_cont).astype('int')
-
-        if visualise: 
-            plt.imshow(img)
-            plt.imshow(eroded_cont, cmap='gray', alpha=0.5)
-            plt.show()
-
-        surface_area = np.sum(eroded_cont)*(self.resolution['pixel_size_xy']**2)
-
-        if verbose: 
-            print(f'Segmented cell surface area is {surface_area:.0f} {self.resolution["unit"]}^2.')
-            print('Defined as the difference between the filled and unfilled mask.')
-
-        self.estimated_parameters['surface_area'] = surface_area
-        self._call_hist('surface_area')
-        return None
 
     def meshwork_size(self, summary: bool=False, verbose: bool=False, visualise=False, save_vis=False, dest_dir: str=os.getcwd()):
         """ Accepts a binary image and returns meshwork size. 
@@ -977,60 +999,58 @@ class ActImg:
         
         img = self.manipulated_stack.copy()
         img_inverted = (img==0).astype('int')
-        labels = measure.label(img_inverted)
-        equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))*self.resolution['pixel_size_xy']
-        self.estimated_parameters['equivalent_diameters'] = equiv_diams.iloc[:,0].values.tolist() 
-        self._binary_images['inverted_image'] = img_inverted.copy()
-        self._call_hist('meshwork_size')
+        try: 
+            self._binary_images['cell_surface'] is not None
+        except KeyError:
+            self.surface_area()
+            self._binary_images['cell_surface']
+        finally: 
+            labels = measure.label(img_inverted)
+            equiv_diams = pd.DataFrame(measure.regionprops_table(labels, img, properties=['equivalent_diameter_area']))*self.resolution['pixel_size_xy']
+            self.estimated_parameters['equivalent_diameters'] = {'values': equiv_diams.iloc[:,0].values.tolist(), 'unit': self.resolution['unit']} 
+            self._binary_images['inverted_image'] = img_inverted.copy()
+            self._call_hist('meshwork_size')
 
-        if summary: 
-            median = equiv_diams.iloc[:,0].median()
-            mean = equiv_diams.iloc[:,0].mean()
-            CI95_mean_norm_lower, CI95_mean_norm_upper = stats.norm.interval(alpha=0.95, loc=mean, scale=equiv_diams.iloc[:,0].sem())
-            Q25, Q75 = equiv_diams.iloc[:,0].quantile([0.25, 0.75])
-            self.estimated_parameters['mesh_size_summary'] = {'mean': mean, '95%_CI': [CI95_mean_norm_lower, CI95_mean_norm_upper],
-                                                              'median': median, 'IQR': [Q25, Q75]}
-        if verbose and summary: 
-            print(f'mean mesh size ({self.resolution["unit"]}):        {mean:.3f}')
-            print(f'95% CI of the mean:    [{CI95_mean_norm_lower:.3f}, {CI95_mean_norm_upper:.3f}]')
-            print(f'median mesh size ({self.resolution["unit"]}):      {median:.3f}')
-            print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
-        
-        if visualise or save_vis: 
-            try:
-                filled_img = self._binary_images['filled_image'].copy()
-            except KeyError: 
-                # close any very small holes to ensure uniformity 
-                closed_img = morphology.binary_closing(img, structure=np.ones((2,2)))
-                # fill any holes in closed image
-                filled_img = morphology.binary_fill_holes(closed_img)
-                self._binary_images['filled_image'] = filled_img.copy()
-            plt.subplot(2,2,1)
-            plt.imshow(img, cmap='gray')
-            plt.title('binary image')
-            plt.axis('off')
-            plt.subplot(2,2,2)
-            plt.imshow(filled_img, cmap='gray')
-            plt.title('filled image')
-            plt.axis('off')
-            plt.subplot(2,2,3)
-            plt.imshow(img_inverted, cmap='gray')
-            plt.title('inverted image')
-            plt.axis('off')
-            plt.subplot(2,2,4)
-            plt.imshow(labels, cmap='tab20c_r')
-            plt.title('inverted image labels')
-            plt.axis('off')
-            plt.tight_layout()
+            if summary: 
+                median = equiv_diams.iloc[:,0].median()
+                mean = equiv_diams.iloc[:,0].mean()
+                CI95_mean_norm_lower, CI95_mean_norm_upper = stats.norm.interval(alpha=0.95, loc=mean, scale=equiv_diams.iloc[:,0].sem())
+                Q25, Q75 = equiv_diams.iloc[:,0].quantile([0.25, 0.75])
+                self.estimated_parameters['mesh_size_summary'] = {'mean': mean, '95%_CI': [CI95_mean_norm_lower, CI95_mean_norm_upper],
+                                                                'median': median, 'IQR': [Q25, Q75]}
+            if verbose and summary: 
+                print(f'mean mesh size ({self.resolution["unit"]}):        {mean:.3f}')
+                print(f'95% CI of the mean:    [{CI95_mean_norm_lower:.3f}, {CI95_mean_norm_upper:.3f}]')
+                print(f'median mesh size ({self.resolution["unit"]}):      {median:.3f}')
+                print(f'IQR of mesh sizes:     [{Q25:.3f}, {Q75:.3f}]')
+            
+            if visualise or save_vis: 
+                plt.subplot(2,2,1)
+                plt.imshow(img, cmap='gray')
+                plt.title('binary image')
+                plt.axis('off')
+                plt.subplot(2,2,2)
+                plt.imshow(self._binary_images['cell_surface'], cmap='gray')
+                plt.title('cell surface')
+                plt.axis('off')
+                plt.subplot(2,2,3)
+                plt.imshow(img_inverted, cmap='gray')
+                plt.title('inverted image')
+                plt.axis('off')
+                plt.subplot(2,2,4)
+                plt.imshow(labels, cmap='tab20c_r')
+                plt.title('inverted image labels')
+                plt.axis('off')
+                plt.tight_layout()
 
-            if save_vis: 
-                imtitle = f'{self.title.split(".")[0]}_mesh_segmentation.png'
-                dest = os.path.join(dest_dir, imtitle)
-                plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
-                plt.close()
-            else: 
-                plt.show()
-        return None
+                if save_vis: 
+                    imtitle = f'{self.title.split(".")[0]}_mesh_segmentation.png'
+                    dest = os.path.join(dest_dir, imtitle)
+                    plt.savefig(dest, dpi=300, transparent=True, bbox_inches='tight', pad_inches=0)
+                    plt.close()
+                else: 
+                    plt.show()
+            return None
 
 
     def nuke(self):
@@ -1097,6 +1117,13 @@ class ActImg:
             self._history = []
         self._history.append(action)
         return None
+    
+    def _update_log(self, key, value):
+        """ Helper updates the `self._log` attribute with any pertinent information. """
+        try: 
+            self._log[key].append(value)
+        except KeyError: 
+            self._log[key] = value
 
 
 
