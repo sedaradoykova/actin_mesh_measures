@@ -56,8 +56,207 @@ from skimage import measure
 from skimage.morphology import convex_hull_image, convex_hull_object 
 import skimage.morphology as morpho # skimorph
 
+"""TODO: 
+- improve documentation of new surface functions
+- make new class to handle segmented data 
+    - ActImg and ActImgBinary? 
+"""
 
-def surface_area(actimg, vis=False):
+def _get_contour(actimg, n_dilations: int=3, closing_structure: any=None):
+    """ Returns the longest contour as a mask, all contours detected, and the index of the longest contour. 
+    Note: close and dilate image serially to ensure robustness to small gaps and inconsistencies in cell boundary;
+    find contours and the index of the longest contour; map contours onto new mask. 
+    Arguments
+    ---------
+    n_dilations=3
+        Number of serial dilations, can be adjusted to avoid introducing artifacts. 
+    closing_structure : array-like, =None 
+        Structure used to fill in small, presumably unwanted gaps in original segmentation. 
+    Returns
+    ------- 
+    contour_img : np.ndarray (m, n)
+        A mask with the longest contour (=1). 
+    contours : list of np.ndarrays
+        A list of all detected contours. 
+    (contour_ceil, contour_floor) : tuple of np.ndarrays
+        Rounded coordinates mapped onto contour_img.  
+    ind_max : int
+        The index of the longest contour in `contours`.
+    """
+    if closing_structure is None:
+        closing_structure = np.ones((5,5))
+    img = np.copy(actimg.manipulated_stack)
+    # close
+    closed_image = binary_closing(img, structure=closing_structure)
+    # dilate serially
+    dilated = morpho.dilation(closed_image).astype('int')
+    for n in np.arange(n_dilations-1):
+        dilated = morpho.dilation(dilated).astype('int')
+    # fill
+    filled_image = morphology.binary_fill_holes(dilated)
+    # find all contours and select longest
+    contours = measure.find_contours(filled_image)
+    ind_max = np.argmax([x.shape[0] for x in contours])
+    contour_ceil = np.ceil(contours[ind_max]).astype('int')
+    contour_floor = np.floor(contours[ind_max]).astype('int')
+
+    contour_img = np.zeros(filled_image.shape)
+    contour_img[contour_ceil[:,0], contour_ceil[:,1]] = 1
+    contour_img[contour_floor[:,0], contour_floor[:,1]] = 1
+
+    return contour_img, contours, (contour_ceil, contour_floor), ind_max
+
+def _fill_contour_img(actimg, contour_img, n_erosions: int=4, extra_dilate_fill: bool=True):
+    """ Returns a filled mask of the cell surface. Uses serial erosions to avoid artifacts.
+    Arguments
+    ---------
+    contour_img : np.ndarray 
+        Binary mask of a cell contour, output of `_get_contour()`
+    n_erosions : bool=4
+        Number of serial erosions which prevent the creation of artifacts. 
+        Should be one more than the ones introduced in `_get_contour()` for greatest degree of accuracy. 
+    extra_dilate_fill : bool=True
+        An optional additional dilation and filling step to capture any small areas which may be otherwise missed. 
+    Returns
+    -------
+    eroded_contour_img : nd.array (m,n)
+        A mask with the filled and thinned cell surface. 
+    See also
+    --------
+    `_get_contour()`, `_check_boundaries()`, `surface_area()`
+    """
+    if extra_dilate_fill:
+        # dilate contour 
+        dilated_cont = morpho.dilation(contour_img).astype('int')
+        # fill contour 
+        filled_cont = morphology.binary_fill_holes(dilated_cont).astype('int')
+    else: 
+        filled_cont = morphology.binary_fill_holes(contour_img).astype('int')
+    # erode serially (equal to no. dilations)
+    eroded_contour_img = morpho.binary_erosion(filled_cont).astype('int')
+    for n in np.arange(n_erosions):
+        eroded_contour_img = morpho.binary_erosion(eroded_contour_img).astype('int')
+
+    return eroded_contour_img
+
+
+def _check_boundaries(actimg, contour_img):
+    """ Check if contour touches image boundaries. If yes, check how many points are touching a given boundary.
+    If < 5 points are touching the boundary, their range will be used to fill (min, max).
+    If > 5 points are touching the boundary on one axis, segmentation will fail. 
+    If the surface area is too large or too small, this will be raised appropriately. 
+    Arguments
+    ---------
+    contour_img : np.ndarray (m,n)
+        A mask with the longest contour (=1); returned by `_get_contour()`.
+    Returns
+    -------
+    log : dict
+        A log detailing the kind of error expected in case of unsuccessful mesh segmentation. 
+    """
+    up_r, up_c = actimg.shape
+    # check left boundary 
+    # contour_floor, contour_ceil  --  currently uses only floor, add ceil if necessary
+    out = np.unique(np.array([r for r,c in contour_floor if c == 0]))
+    if out.shape[0] == 1: 
+        contour_img[out,0] = 1
+    elif (out.shape[0] > 1) and (out.shape[0] < 6): 
+        contour_img[np.min(out):np.max(out),0] = 1
+    else:
+        print('Left: confusing boundary case; too many broken up boundaries along axis.')
+    # check right boundary 
+    out = np.unique(np.array([r for r,c in contour_floor if c == up_c]))
+    if out.shape[0] == 1: 
+        contour_img[out,up_c] = 1
+    elif (out.shape[0] > 1) and (out.shape[0] < 6): 
+        contour_img[np.min(out):np.max(out),up_c] = 1
+    else:
+        print('Right: confusing boundary case; too many broken up boundaries along axis.')
+    # check lower boundary  
+    out = np.unique(np.array([c for r,c in contour_floor if r == 0]))
+    if out.shape[0] == 1: 
+        contour_img[0,out] = 1
+    elif (out.shape[0] > 1) and (out.shape[0] < 6): 
+        contour_img[0, np.min(out):np.max(out)] = 1
+    else:
+        print('Bottom: confusing boundary case; too many broken up boundaries along axis.')
+    # check upper boundary 
+    out = np.unique(np.array([c for r,c in contour_floor if r == up_r]))
+    if out.shape[0] == 1: 
+        contour_img[up_r,out] = 1
+    elif (out.shape[0] > 1) and (out.shape[0] < 6): 
+        contour_img[up_r,np.min(out):np.max(out)] = 1
+    else:
+        print('Top: confusing boundary case; too many broken up boundaries along axis.')
+    #return log 
+
+
+def _clean_up_surface(actimg, contour_img, contour_coordinates, saturation_area: int=3e3,
+                      close_very_small_holes: bool=True):
+    """ Returns a cell surface that has been cleaned up with dilation/erosion artifacts. 
+    Arguments
+    ---------
+
+    """
+    contour_ceil, contour_floor = contour_coordinates
+    if close_very_small_holes: 
+        contour_img = binary_closing(contour_img, structure = np.ones((1,2)))
+        contour_img = binary_closing(contour_img, structure = np.ones((2,1)))
+    contour_img_inverted = (contour_img==0).astype('int')
+
+    labels = measure.label(contour_img_inverted, connectivity=1) # 4-connectivity for 2d images
+    
+    # shift the contour by a pixel in 8 orthogonal directions
+    # if label overlaps with contour, remove it 
+    labs_to_rm = []
+    for r_plus, c_plus in zip((1,-1,0,0,1,-1,1,-1), (0,0,1,-1,1,-1,-1,1)):
+        newlabs = [*np.unique(labels[contour_ceil[:,0]+r_plus, contour_ceil[:,1]+c_plus])]
+        labs_to_rm += newlabs
+    rm_inds = np.unique(np.asarray(labs_to_rm))
+
+    # remove labels in rm_inds only if they are smaller than 20 px
+    for labval in rm_inds: 
+        labinds = np.where(labels==labval) 
+        if len(labinds[0]) <=20:
+            labels[labinds] = 0
+
+    # label every region by area  
+    labelsfloat = np.zeros(actimg.shape).astype('float')
+    for labval in np.unique(labels): 
+        labinds = np.where(labels==labval) 
+        newval = len(labinds[0])
+        labelsfloat[labinds] = newval if ((labval != 1) and (labval != 0)) else 0
+
+    # make transparent images ready for visualisation 
+    labelsfloat[np.where(np.isclose(labelsfloat, 0))] = np.nan
+    labelsfloat[labelsfloat >= saturation_area] = saturation_area
+
+    binary = actimg.manipulated_stack.copy().astype('float')
+    binary[np.where(np.isclose(binary, 1))] = np.nan 
+    contour_transparent = contour_img.copy().astype('float')
+    contour_transparent[np.where(np.isclose(contour_transparent, 0))] = np.nan
+    contour_img_inverted_transp = contour_img_inverted.copy().astype('float')
+    contour_img_inverted_transp[np.where(np.isclose(contour_img_inverted_transp, 0))] = np.nan
+
+
+    plt.imshow(newim_transp, cmap='gray')
+    plt.imshow(labelsfloat, cmap='coolwarm_r')
+    cb = plt.colorbar()
+    ticks = cb.get_ticks().astype('int').astype('str')
+    ticks[-1] = f'>={ticks[-1]}'
+    cb.set_ticklabels(ticks)
+    plt.title('mesh hole area (px)')
+    plt.axis('off'); plt.tight_layout(); plt.show()
+
+
+    raise NotImplementedError
+
+
+def _visualise_surface_segmentation(actimg):
+    raise NotImplementedError
+
+
+def surface_area(actimg, n_dilations=3, closing_structure=None, n_erosions=4, extra_dilate_fill=True):
     """ 
     Returns the surface area and associated units. 
     Note: the algorithm uses serial dilations to include the periphery of the cell even if the cell boundary is discontinuous.
@@ -68,39 +267,32 @@ def surface_area(actimg, vis=False):
     if the cell is not segmented, this is recorded separately
 
     """
-    img = np.copy(actimg.manipulated_stack)
-    # close
-    closed_image = binary_closing(img, structure = np.ones((5,5))) # compare    5,5   7,7   10,10   15,15   30,30
-    # dilate serially
-    dilated = morpho.dilation(closed_image).astype('int')
-    dilated = morpho.dilation(dilated).astype('int')
-    dilated = morpho.dilation(dilated).astype('int')
-    # fill
-    filled_image = morphology.binary_fill_holes(dilated)
-    # find contour
-    contours = measure.find_contours(filled_image)
-    ind_max = np.argmax([len(x) for x in contours])
-    cont_img = np.zeros(filled_image.shape)
-    cont_img[np.ceil(contours[ind_max]).astype('int')[:,0], np.ceil(contours[ind_max]).astype('int')[:,1]] = 1
-    # dilate contour 
-    dilated_cont = morpho.dilation(cont_img).astype('int')
-    # fill contour 
-    filled_cont = morphology.binary_fill_holes(dilated_cont).astype('int')
-    # erode serially (equal to no. dilations)
-    eroded_cont = morpho.binary_erosion(filled_cont).astype('int')
-    eroded_cont = morpho.binary_erosion(eroded_cont).astype('int')
-    eroded_cont = morpho.binary_erosion(eroded_cont).astype('int')
+    contour_img, contours, ind_max = _get_contour(actimg, n_dilations=n_dilations, closing_structure=closing_structure)
+    eroded_contour_img = _fill_contour_img(contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
 
-    if vis:
-        plt.imshow(img)
-        plt.imshow(eroded_cont, cmap='gray', alpha=0.5)
-        plt.title(f'{imname} : {sub}')
-        plt.show()
-
-    surface_area = np.sum(eroded_cont)*(actimg.resolution['pixel_size_xy']**2)/1e6
+    surface_area = np.sum(eroded_contour_img)*(actimg.resolution['pixel_size_xy']**2)/1e6
     print(f'Surface area (um^2)  =  {surface_area:.2f}')
-    if surface_area < np.sum(img)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
-        print(f'Image not segmented well: {actimg.title}')
+    if surface_area/(actimg.shape[0]*actimg.shape[1]) > 0.7:
+            print(f'{actimg.title}: surface area too large. Inspect manually.')
+
+    elif surface_area < np.sum(img)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
+        print(f'{actimg.title} segmented surface area too small. Checking if it touches boundaries.')
+
+        eroded_contour_img = _check_boundaries(eroded_contour_img)
+
+        eroded_contour_img = _fill_contour_img(contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
+
+        surface_area = np.sum(eroded_contour_img)*(actimg.resolution['pixel_size_xy']**2)/1e6
+        print(f'Surface area (um^2)  =  {surface_area:.2f}')
+
+        if surface_area < np.sum(img)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
+            print(f'{actimg.title}: surface area too small despite filing edges. Inspect manually.')
+        elif surface_area/(actimg.shape[0]*actimg.shape[1]) > 0.7:
+            print(f'{actimg.title}: surface area too large after filing edges. Inspect manually.')
+
+    else: 
+        return surface_area
+
 
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data/")
@@ -155,9 +347,13 @@ for ((path_in, imname), (base, cyto)) in zip(all_paths, all_planes):
             # actimg.estimated_parameters['aggregated_line_profiles']
             # actimg.estimated_parameters['surface_area'] / 1e6
 
-actimg = get_ActImg('1min_FOV3_decon_left.tif', os.path.join(data_path, 'CARs_8.11.22_processed_imageJ')) 
+
+
+# 1min_FOV3_decon_left.tif  sub=[1]     1 min cell segmented more fully 
+subs = [1]
+actimg = get_ActImg('1min_FOV8_decon_bottom_left.tif ', os.path.join(data_path, 'CARs_8.11.22_processed_imageJ')) 
 actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=[1],visualise=False)
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=subs,visualise=False)
 actimg.z_project_min()
 actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
 
@@ -165,8 +361,23 @@ actimg.meshwork_density(False)
 actimg.meshwork_size(False, False, False) #FFT
 actimg.surface_area(False)
 
+actimg.visualise_stack('manipulated')
 imname, sub = '', ''
 surface_area(actimg, vis=True)
+
+
+
+
+
+xs = np.arange(1,1000,500)
+ys_sq = xs**2
+ys_cir = np.pi*((xs/2)**2)
+plt.plot(xs, ys_sq)
+plt.plot(xs, ys_cir)
+plt.plot(xs, (ys_cir/ys_sq))
+plt.show()
+
+#### works to fill / segment / color by area 
 
 import pandas as pd
 
@@ -180,6 +391,7 @@ contour_floor = np.floor(contour).astype('int')
 newim[inds] = actimg.manipulated_stack[inds].copy()
 newim[contour_ceil[:,0], contour_ceil[:,1]] = 1
 newim[contour_floor[:,0], contour_floor[:,1]] = 1
+#plt.imshow(newim);plt.show() 
 newim = binary_closing(newim, structure = np.ones((1,2)))
 newim = binary_closing(newim, structure = np.ones((2,1)))
 newimg_inverted = (newim==0).astype('int')
@@ -198,11 +410,85 @@ plt.title('inverted image labels')
 plt.axis('off'); plt.show()
 
 
-plt.imshow(newimg_inverted)
-plt.show()
+cont_only = np.zeros(actimg.shape)
+cont_only[contour_ceil[:,0], contour_ceil[:,1]] = 1
+cont_only[contour_floor[:,0], contour_floor[:,1]] = 1
+
+#plt.imshow(newimg_inverted)
+plt.imshow(labels, cmap='tab20c_r')
+plt.imshow(cont_only, cmap='gray', alpha=0.3)
+plt.imshow(actimg.manipulated_stack, cmap='gray', alpha=0.1)
+plt.title('inverted image labels')
+plt.axis('off'); plt.show()
+
+labels = measure.label(newimg_inverted, connectivity=1) # 4-connectivity for 2d images
+
+labs_to_rm = []
+# shift the contour by a pixel in 8 orthogonal directions
+# if label overlaps with  
+for r_plus, c_plus in zip((1,-1,0,0,1,-1,1,-1), (0,0,1,-1,1,-1,-1,1)):
+    newlabs = [*np.unique(labels[contour_ceil[:,0]+r_plus, contour_ceil[:,1]+c_plus])]
+    labs_to_rm += newlabs
+    
+rm_inds = np.unique(np.asarray(labs_to_rm))
 
 
-actimg.meshwork_size(False, False, True)
+for labval in rm_inds: 
+    labinds = np.where(labels==labval) 
+    if len(labinds[0]) <=20:
+        labels[labinds] = 0
+
+labelsfloat = np.zeros(actimg.shape).astype('float')
+lengths = []
+for labval in np.unique(labels): 
+    labinds = np.where(labels==labval) 
+    newval = len(labinds[0])
+    labelsfloat[labinds] = newval if ((labval != 1) and (labval != 0)) else 0
+
+
+#labelsfloat = labels.astype('float')
+labelsfloat[np.where(np.isclose(labelsfloat, 0))] = np.nan
+labelsfloat[labelsfloat >= 3e3] = 3e3
+#labelsfloat[labels==1] = np.nan
+
+binary = actimg.manipulated_stack.copy().astype('float')
+#binary[np.where(np.isclose(binary, 0))] = np.nan
+binary[np.where(np.isclose(binary, 1))] = np.nan #1
+cont_transparent = cont_only.copy().astype('float')
+cont_transparent[np.where(cont_transparent)==0] = np.nan
+
+newim_transp = newimg_inverted.copy().astype('float')
+newim_transp[np.where(np.isclose(newim_transp, 0))] = np.nan
+
+#plt.imshow(cont_transparent, cmap='gray')#, alpha=0.7)
+
+plt.imshow(newim_transp, cmap='gray')
+plt.imshow(labelsfloat, cmap='coolwarm_r')
+#lt.colorbar()
+cb = plt.colorbar()
+ticks = cb.get_ticks().astype('int').astype('str')
+ticks[-1] = f'>={ticks[-1]}'
+cb.set_ticklabels(ticks)
+
+plt.title('mesh hole area (px)')
+plt.axis('off'); plt.tight_layout(); plt.show()
+
+
+
+
+# or just use the 'area' from regionprops.... 
+areas = pd.DataFrame(measure.regionprops_table(labels, actimg._binary_images['cell_surface'], properties=['area']))#*actimg.resolution['pixel_size_xy']
+
+
+labelsfloat = np.zeros(actimg.shape).astype('float')
+lengths = []
+for labval in np.unique(labels): 
+    labinds = np.where(labels==labval) 
+    newval = len(labinds[0])
+    labelsfloat[labinds] = newval if ((labval != 1) and (labval != 0)) else 0
+
+
+
 """
 Artifact correction: 
 skimage.segmentation.clear_border(labels, buffer_size=0, bgval=0, mask=None, *, out=None)
