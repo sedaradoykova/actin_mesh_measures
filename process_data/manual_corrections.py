@@ -140,7 +140,7 @@ def _fill_contour_img(actimg, contour_img, n_erosions: int=4, extra_dilate_fill:
     return eroded_contour_img
 
 
-def _check_boundaries(actimg, contour_img):
+def _check_boundaries(actimg, contour_img, contour_ceil, contour_floor):
     """ Check if contour touches image boundaries. If yes, check how many points are touching a given boundary.
     If < 5 points are touching the boundary, their range will be used to fill (min, max).
     If > 5 points are touching the boundary on one axis, segmentation will fail. 
@@ -162,6 +162,8 @@ def _check_boundaries(actimg, contour_img):
         contour_img[out,0] = 1
     elif (out.shape[0] > 1) and (out.shape[0] < 6): 
         contour_img[np.min(out):np.max(out),0] = 1
+    elif out.shape[0] == 0:
+        pass
     else:
         print('Left: confusing boundary case; too many broken up boundaries along axis.')
     # check right boundary 
@@ -170,6 +172,8 @@ def _check_boundaries(actimg, contour_img):
         contour_img[out,up_c] = 1
     elif (out.shape[0] > 1) and (out.shape[0] < 6): 
         contour_img[np.min(out):np.max(out),up_c] = 1
+    elif out.shape[0] == 0:
+        pass
     else:
         print('Right: confusing boundary case; too many broken up boundaries along axis.')
     # check lower boundary  
@@ -178,6 +182,8 @@ def _check_boundaries(actimg, contour_img):
         contour_img[0,out] = 1
     elif (out.shape[0] > 1) and (out.shape[0] < 6): 
         contour_img[0, np.min(out):np.max(out)] = 1
+    elif out.shape[0] == 0:
+        pass
     else:
         print('Bottom: confusing boundary case; too many broken up boundaries along axis.')
     # check upper boundary 
@@ -186,26 +192,35 @@ def _check_boundaries(actimg, contour_img):
         contour_img[up_r,out] = 1
     elif (out.shape[0] > 1) and (out.shape[0] < 6): 
         contour_img[up_r,np.min(out):np.max(out)] = 1
+    elif out.shape[0] == 0:
+        pass
     else:
         print('Top: confusing boundary case; too many broken up boundaries along axis.')
-    #return log 
+    return contour_img 
 
 
-def _clean_up_surface(actimg, contour_img, contour_coordinates, saturation_area: int=3e3,
+def _clean_up_surface(actimg, contour_img, eroded_contour_img, contour_coordinates, saturation_area: int=3e3,
                       close_very_small_holes: bool=True):
     """ Returns a cell surface that has been cleaned up with dilation/erosion artifacts. 
     Arguments
     ---------
 
     """
-    contour_ceil, contour_floor = contour_coordinates
-    if close_very_small_holes: 
-        contour_img = binary_closing(contour_img, structure = np.ones((1,2)))
-        contour_img = binary_closing(contour_img, structure = np.ones((2,1)))
-    contour_img_inverted = (contour_img==0).astype('int')
+    # filled contour cooridnates 
+    inside_coords = np.nonzero(eroded_contour_img)
+    # create a mask of the cell outline and contained mesh originally segmented 
+    mesh_outline = np.zeros(actimg.shape)
+    mesh_outline[inside_coords] = actimg.manipulated_stack[inside_coords]
+    # repeat cell outline because it's not segmented initially  
+    mesh_outline[np.nonzero(contour_img)] = 1
+    if close_very_small_holes:
+        mesh_outline = binary_closing(mesh_outline, structure = np.ones((1,2)))
+        mesh_outline = binary_closing(mesh_outline, structure = np.ones((2,1)))
+        mesh_outline = _check_boundaries(actimg, mesh_outline)
 
-    labels = measure.label(contour_img_inverted, connectivity=1) # 4-connectivity for 2d images
-    
+    mesh_inverted = (mesh_outline==0).astype('int')
+    labels = measure.label(mesh_inverted, connectivity=1) # 4-connectivity for 2d images
+
     # shift the contour by a pixel in 8 orthogonal directions
     # if label overlaps with contour, remove it 
     labs_to_rm = []
@@ -222,34 +237,32 @@ def _clean_up_surface(actimg, contour_img, contour_coordinates, saturation_area:
 
     # label every region by area  
     labelsfloat = np.zeros(actimg.shape).astype('float')
+    area_factor = actimg.resolution['pixel_size_xy']**2 if actimg.resolution['unit'] == 'nm' else 1
     for labval in np.unique(labels): 
         labinds = np.where(labels==labval) 
-        newval = len(labinds[0])
+        newval = len(labinds[0])*area_factor  
         labelsfloat[labinds] = newval if ((labval != 1) and (labval != 0)) else 0
 
     # make transparent images ready for visualisation 
     labelsfloat[np.where(np.isclose(labelsfloat, 0))] = np.nan
     labelsfloat[labelsfloat >= saturation_area] = saturation_area
 
-    binary = actimg.manipulated_stack.copy().astype('float')
-    binary[np.where(np.isclose(binary, 1))] = np.nan 
-    contour_transparent = contour_img.copy().astype('float')
-    contour_transparent[np.where(np.isclose(contour_transparent, 0))] = np.nan
-    contour_img_inverted_transp = contour_img_inverted.copy().astype('float')
-    contour_img_inverted_transp[np.where(np.isclose(contour_img_inverted_transp, 0))] = np.nan
+    contour_transparent = mesh_outline.copy().astype('float')
+    contour_transparent[np.where(np.isclose(contour_transparent, 1))] = np.nan
+    mesh_inverted_transp = mesh_inverted.copy().astype('float')
+    mesh_inverted_transp[np.where(np.isclose(mesh_inverted_transp, 0))] = np.nan
 
 
-    plt.imshow(newim_transp, cmap='gray')
+    plt.imshow(contour_transparent, cmap='gray')
     plt.imshow(labelsfloat, cmap='coolwarm_r')
     cb = plt.colorbar()
     ticks = cb.get_ticks().astype('int').astype('str')
     ticks[-1] = f'>={ticks[-1]}'
     cb.set_ticklabels(ticks)
-    plt.title('mesh hole area (px)')
+    plt.title('mesh hole area (nm^2)')
     plt.axis('off'); plt.tight_layout(); plt.show()
 
-
-    raise NotImplementedError
+    return (labels, labelsfloat)
 
 
 def _visualise_surface_segmentation(actimg):
@@ -267,25 +280,25 @@ def surface_area(actimg, n_dilations=3, closing_structure=None, n_erosions=4, ex
     if the cell is not segmented, this is recorded separately
 
     """
-    contour_img, contours, ind_max = _get_contour(actimg, n_dilations=n_dilations, closing_structure=closing_structure)
-    eroded_contour_img = _fill_contour_img(contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
+    contour_img, contours, (contour_ceil, contour_floor), ind_max = _get_contour(actimg, n_dilations=n_dilations, closing_structure=closing_structure)
+    eroded_contour_img = _fill_contour_img(actimg, contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
 
     surface_area = np.sum(eroded_contour_img)*(actimg.resolution['pixel_size_xy']**2)/1e6
     print(f'Surface area (um^2)  =  {surface_area:.2f}')
     if surface_area/(actimg.shape[0]*actimg.shape[1]) > 0.7:
             print(f'{actimg.title}: surface area too large. Inspect manually.')
 
-    elif surface_area < np.sum(img)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
+    elif surface_area < np.sum(actimg.manipulated_stack)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
         print(f'{actimg.title} segmented surface area too small. Checking if it touches boundaries.')
 
-        eroded_contour_img = _check_boundaries(eroded_contour_img)
+        contour_img = _check_boundaries(actimg, contour_img, contour_ceil, contour_floor)
 
-        eroded_contour_img = _fill_contour_img(contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
+        eroded_contour_img = _fill_contour_img(actimg, contour_img, n_erosions=n_erosions, extra_dilate_fill=extra_dilate_fill)
 
         surface_area = np.sum(eroded_contour_img)*(actimg.resolution['pixel_size_xy']**2)/1e6
         print(f'Surface area (um^2)  =  {surface_area:.2f}')
 
-        if surface_area < np.sum(img)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
+        if surface_area < np.sum(actimg.manipulated_stack)*(actimg.resolution['pixel_size_xy']**2)/1e6 - surface_area:
             print(f'{actimg.title}: surface area too small despite filing edges. Inspect manually.')
         elif surface_area/(actimg.shape[0]*actimg.shape[1]) > 0.7:
             print(f'{actimg.title}: surface area too large after filing edges. Inspect manually.')
@@ -363,11 +376,83 @@ actimg.surface_area(False)
 
 actimg.visualise_stack('manipulated')
 imname, sub = '', ''
-surface_area(actimg, vis=True)
+surface_area(actimg)
 
 
 
+contour_img, contours, (contour_ceil, contour_floor), ind_max  = _get_contour(actimg, n_dilations=1)
+eroded_contour_img = _fill_contour_img(actimg, contour_img)
+eroded_contour_img = _check_boundaries(actimg, contour_img, contour_ceil, contour_floor)
+eroded_contour_img = _fill_contour_img(actimg, eroded_contour_img, n_erosions=1)
 
+_clean_up_surface(actimg, contour_img, eroded_contour_img, contour_ceil, contour_floor)
+
+saturation_area = 3e3
+
+
+mesh_outline = np.zeros(actimg.shape)
+
+inside_coords = np.nonzero(eroded_contour_img)
+mesh_outline[inside_coords] = actimg.manipulated_stack[inside_coords]
+mesh_outline[np.nonzero(contour_img)] = 1
+
+mesh_outline = binary_closing(mesh_outline, structure = np.ones((1,2)))
+mesh_outline = binary_closing(mesh_outline, structure = np.ones((2,1)))
+mesh_outline = _check_boundaries(actimg, mesh_outline)
+mesh_inverted = (mesh_outline==0).astype('int')
+
+plt.imshow(mesh_outline); plt.show()
+plt.imshow()
+
+labels = measure.label(mesh_inverted, connectivity=1) # 4-connectivity for 2d images
+
+# shift the contour by a pixel in 8 orthogonal directions
+# if label overlaps with contour, remove it 
+labs_to_rm = []
+for r_plus, c_plus in zip((1,-1,0,0,1,-1,1,-1), (0,0,1,-1,1,-1,-1,1)):
+    newlabs = [*np.unique(labels[contour_ceil[:,0]+r_plus, contour_ceil[:,1]+c_plus])]
+    labs_to_rm += newlabs
+rm_inds = np.unique(np.asarray(labs_to_rm))
+
+# remove labels in rm_inds only if they are smaller than 20 px
+for labval in rm_inds: 
+    labinds = np.where(labels==labval) 
+    if len(labinds[0]) <=20:
+        labels[labinds] = 0
+
+# label every region by area  
+labelsfloat = np.zeros(actimg.shape).astype('float')
+for labval in np.unique(labels): 
+    labinds = np.where(labels==labval) 
+    newval = len(labinds[0])
+    labelsfloat[labinds] = newval if ((labval != 1) and (labval != 0)) else 0
+
+# make transparent images ready for visualisation 
+labelsfloat[np.where(np.isclose(labelsfloat, 0))] = np.nan
+labelsfloat[labelsfloat >= saturation_area] = saturation_area
+
+
+contour_transparent = mesh_outline.copy().astype('float')
+contour_transparent[np.where(np.isclose(contour_transparent, 1))] = np.nan
+mesh_inverted_transp = mesh_inverted.copy().astype('float')
+mesh_inverted_transp[np.where(np.isclose(mesh_inverted_transp, 0))] = np.nan
+
+
+plt.imshow(contour_transparent, cmap='gray')
+plt.imshow(labelsfloat, cmap='coolwarm_r')
+cb = plt.colorbar()
+ticks = cb.get_ticks().astype('int').astype('str')
+ticks[-1] = f'>={ticks[-1]}'
+cb.set_ticklabels(ticks)
+plt.title('mesh hole area (px)')
+plt.axis('off'); plt.tight_layout(); plt.show()
+
+plt.imshow(labelsfloat); plt.show()
+
+# can't use float labels but can use them for nice visualisation 
+import pandas as pd
+equiv_diams = pd.DataFrame(measure.regionprops_table(labels, mesh_outline, properties=['equivalent_diameter_area']))*actimg.resolution['pixel_size_xy']
+plt.hist(equiv_diams); plt.show()
 
 xs = np.arange(1,1000,500)
 ys_sq = xs**2
