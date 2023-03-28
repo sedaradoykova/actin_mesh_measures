@@ -86,7 +86,6 @@ class ActImg:
         self._binary_images = {}
         self._log = {}
 
-
     def visualise(
         self, imtype: str='original', ind: int=1, save: bool=False, dest_dir: str=os.getcwd(),
         colmap: str='inferno', scale_bar: bool=True, bar_locate:str='upper left'
