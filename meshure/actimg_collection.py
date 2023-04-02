@@ -4,6 +4,7 @@ import pandas as pd
 from dataclasses import dataclass
 from tqdm import tqdm
 from meshure.actimg import get_ActImg
+from meshure.actimg_binary import get_ActImgBinary
 from meshure.utils import list_files_dir_str, search_files_root
 
 """ TODO: 
@@ -21,27 +22,27 @@ class ActImgCollection:
     analysis_steps=None
     parameters=None
     pipeline_outline = {# loop through these (if needed) for basal/cytosolic results 
-            '01': {'func': 'normalise', 'params': None, 
+            '01': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
+                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            '02': {'func': 'nuke', 'params': None, 'vis_stack': False},
+            '03': {'func': 'normalise', 'params': None, 
                    'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '02': {'func': 'steerable_gauss_2order_thetas', 
+
+            '04': {'func': 'steerable_gauss_2order_thetas', 
                    'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
                    'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '03': {'func': 'z_project_min', 'params': None,
+            '05': {'func': 'z_project_min', 'params': None,
                    'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '04': {'func': 'threshold_dynamic', 'params': "std_dev_factor=0,return_mean_std_dev=False",
-                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '05': {'func': 'meshwork_density', 'params': "verbose=False", 
-                   'vis_stack': False},
-            '06': {'func': 'meshwork_size', 'params': "summary=True,verbose=False,save_vis=True,dest_dir=self.parameters['dest_dir']", 
-                   'vis_stack': False},
-            '07': {'func': 'surface_area', 'params': "verbose=False", 
-                   'vis_stack': False},
-            '08': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
-                   'vis_stack': False},
-            '09': {'func': 'nuke', 'params': None, 'vis_stack': False},
-            '10': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
-                   'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-            '11': {'func': 'nuke', 'params': None,  'vis_stack': False}
+            '06': {'func': 'threshold_dynamic', 'params': "std_dev_factor=0,return_mean_std_dev=False",
+                   'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
+            # '07': {'func': 'meshwork_density', 'params': "verbose=False", 
+            #        'vis_stack': False},
+            # '08': {'func': 'meshwork_size', 'params': "summary=True,verbose=False,save_vis=True,dest_dir=self.parameters['dest_dir']", 
+            #        'vis_stack': False},
+            # '09': {'func': 'surface_area', 'params': "verbose=False", 
+            #        'vis_stack': False},
+            # '10': {'func': 'save_estimated_params', 'params': "dest_dir=self.parameters['dest_dir']", 
+            #        'vis_stack': False},
             }
 
 
@@ -57,6 +58,7 @@ class ActImgCollection:
         # read in data and extract file names/paths.
         self._all_filenames, self._all_filepaths = list_files_dir_str(self.root_path)
         self._filenames_to_del = None
+        self.failed_segmentations = []
 
 
 
@@ -251,15 +253,26 @@ class ActImgCollection:
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
 
         basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytosolic']].values[0]
-        ### use mean background intensity (extracted from image background in imagej)
-        # basal_stack, cyto_stack, background = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytosolic', 'Background']].values[0]
-        # threshold = (float(background) - np.min(actin_img_instance.image_stack))/(np.max(actin_img_instance.image_stack)-np.min(actin_img_instance.image_stack))
-        # self.parameters['threshold'] = threshold
         for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             self.parameters['substack'] = stack
             self.parameters['dest_dir'] = dest
             for step in list(self.pipeline_outline.keys()):
                 self.pipeline_construct(actin_img_instance, step)
+            actimgbinary = get_ActImgBinary(actin_img_instance)
+            try:
+                actimgbinary.surface_area(n_dilations_erosions=(1,3),closing_structure=None,extra_dilate_fill=True)
+                actimgbinary.mesh_holes_area()
+                actimgbinary.visualise_segmentation(save=True, dest_dir=dest)
+                actimgbinary.mesh_density()
+                actimgbinary.quantify_mesh()
+                actimgbinary.save_estimated_parameters(dest)
+            except:
+                self.failed_segmentations += f'{actimgbinary.title}--{dest}' 
+            finally:
+                actin_img_instance.nuke()
+
+
+
 
 
     def visualise_html(self, subdir):
@@ -280,8 +293,8 @@ class ActImgCollection:
             all_output_types[key] = [res for res in results_filenames if val_check in res]
 
 
-        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment']
-        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png', 'mesh_segment']
+        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment', '_mesh_segmentation']
+        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png', 'mesh_segment', '_mesh_segmentation']
         results_filenames = [res for res in os.listdir(self.__save_destdir+'/basal') if 'png' in res]
         for key, val_check in zip(out_types, type_file_ends):
             all_output_types[key] = [res for res in results_filenames if val_check in res]
@@ -314,16 +327,21 @@ class ActImgCollection:
                 f.write('\n')
                 if len(all_output_types['min_proj']) > 0:
                     f.write(f'![](basal/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                f.write('**Binary thresholding**  ')
-                f.write('\n')
-                if len(all_output_types['threshold']) > 0:
-                    f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                # f.write('\n')
+                # f.write('**Binary thresholding**  ')
+                # f.write('\n')
+                # if len(all_output_types['threshold']) > 0:
+                #     f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
+                # f.write('\n')
+                # f.write('**Mesh segmentation**  ')
+                # f.write('\n')
+                # if len(all_output_types['mesh_segment']) > 0:
+                #     f.write(f'![](basal/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
                 f.write('\n')
                 f.write('**Mesh segmentation**  ')
                 f.write('\n')
-                if len(all_output_types['mesh_segment']) > 0:
-                    f.write(f'![](basal/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
+                if len(all_output_types['_mesh_segmentation']) > 0:
+                    f.write(f'![](basal/{all_output_types["_mesh_segmentation"][i]})'+'{ height=300px }  ')
                 f.write('\n\n')
                 f.write('## Cytosolic network  ')
                 f.write('\n\n')
@@ -341,16 +359,22 @@ class ActImgCollection:
                 f.write('\n')
                 if len(all_output_types['min_proj']) > 0:
                     f.write(f'![](cytosolic/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
+                # f.write('\n')
+                # f.write('**Binary thresholding**  ')
+                # f.write('\n')
+                # if len(all_output_types['threshold']) > 0:
+                #     f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
                 f.write('\n')
-                f.write('**Binary thresholding**  ')
-                f.write('\n')
-                if len(all_output_types['threshold']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
-                f.write('\n')
+                # f.write('**Mesh segmentation**  ')
+                # f.write('\n')
+                # if len(all_output_types['mesh_segment']) > 0:
+                #     f.write(f'![](cytosolic/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
+                # f.write('\n')
                 f.write('**Mesh segmentation**  ')
                 f.write('\n')
-                if len(all_output_types['mesh_segment']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
+                if len(all_output_types['_mesh_segmentation']) > 0:
+                    f.write(f'![](cytosolic/{all_output_types["_mesh_segmentation"][i]})'+'{ height=300px }  ')
+
 
                 f.write('\n\n\n')
             
@@ -387,6 +411,16 @@ class ActImgCollection:
 
         delta_t = time.time() - t_start
         print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
+
+        n_failed = len(self.failed_segmentations)
+        if n_failed > 0:
+            response = input(f'Some segmentations failed, see saved logs. View {n_failed} failed cases? [y/n]\n')
+            if response == ('y','Y'):
+                print(self.failed_segmentations)
+            elif response == ('n','N'):
+                pass
+            else: 
+                'Invalid input, step passed.' 
 
         if return_parameters:
             self.return_params()
