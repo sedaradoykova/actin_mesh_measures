@@ -37,7 +37,8 @@ class ActImgBinary(ActImg):
             raise ValueError('Input image is not binary.')
         self.estimated_parameters = {'cell_surface_area': None,
                                      'mesh_density': None, 
-                                     'mesh_holes': None}
+                                     'mesh_holes': None,
+                                     'cell_type': None}
         self.cell_surface_area, self.mesh_holes = None, None
         self.log = ''
 
@@ -484,9 +485,10 @@ class ActImgBinary(ActImg):
                 f.write(self.log)
 
         try:
-            json_params = json.dumps({'resolution': self.resolution,
-                                    'cell_surface_area': self.estimated_parameters['cell_surface_area'],
-                                    'mesh_density': self.estimated_parameters['mesh_density']})
+            json_params = json.dumps({'cell_type': self.estimated_parameters['cell_type'],
+                                      'resolution': self.resolution,
+                                      'cell_surface_area': self.estimated_parameters['cell_surface_area'],
+                                      'mesh_density': self.estimated_parameters['mesh_density']})
             file = 'params_'+self.title.split(".")[0]+'.json' 
             with open(os.path.join(dest, file), 'w') as f:
                 f.write(json_params)

@@ -159,8 +159,13 @@ class ActImgCollection:
         
         Arguments
         ---------
-            sundir : str 
-                ?????? 
+        subdir : str 
+            ?????? 
+        Returns
+        -------
+        curr_filenames : list
+        curr_filepath : list
+
         """
         curr_filenames, curr_filepath = self._all_filenames[subdir], self._all_filepaths[subdir]
         curr_filenames = [f for f in curr_filenames if 'tif' in f and f not in self._filenames_to_del]
@@ -175,7 +180,7 @@ class ActImgCollection:
         except ValueError: 
             raise ValueError(f'File names do not match between focal planes csv file and filenames listed in {curr_filepath}.')
         else: 
-            return curr_filenames, curr_filepath
+            return curr_filenames, curr_filepath, curr_planes
 
 
     def initialise_res_dir(self, subdir):
@@ -247,13 +252,13 @@ class ActImgCollection:
 
 
 
-    def analysis_pipeline(self, filename, filepath):
+    def analysis_pipeline(self, filename, filepath, curr_planes):
         """ ??? """
         actin_img_instance = get_ActImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
 
-        basal_stack, cyto_stack = self.focal_planes.loc[self.focal_planes['File name']==filename, ['Basal', 'Cytosolic']].values[0]
-        for stack, dest in zip([basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
+        basal_stack, cyto_stack, cell_type = curr_planes.loc[curr_planes['File name']==filename, ['Basal', 'Cytosolic', 'Type']].values[0]
+        for mesh_type, stack, dest in zip(['Basal', 'Cytosolic'], [basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             self.parameters['substack'] = stack
             self.parameters['dest_dir'] = dest
             for step in list(self.pipeline_outline.keys()):
@@ -266,6 +271,7 @@ class ActImgCollection:
                 actimgbinary.mesh_density()
                 actimgbinary.quantify_mesh()
                 actimgbinary.save_estimated_parameters(dest)
+                actimgbinary.estimated_parameters['cell_type'] = {'type': cell_type, 'mesh_type': mesh_type}
             except:
                 self.failed_segmentations += f'{actimgbinary.title}--{dest}' 
             finally:
@@ -275,7 +281,7 @@ class ActImgCollection:
 
 
 
-    def visualise_html(self, subdir):
+    def visualise_html(self, subdir: str, curr_planes: pd.DataFrame, include_steps: list=None):
         """ ??? 
         Returns
         -------
@@ -284,96 +290,44 @@ class ActImgCollection:
         curr_filenames, curr_filepath = self._all_filenames[subdir], self._all_filepaths[subdir]
         curr_filenames = [f for f in curr_filenames if 'tif' in f and f not in self._filenames_to_del]
 
-        all_output_types = dict.fromkeys(['original', 'max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment'])
+        filenames, _ = list_files_dir_str(self.__save_destdir)
 
-        out_types = ['original']
-        type_file_ends = ['original']
-        results_filenames = [res for res in os.listdir(self.__save_destdir+'/main') if 'png' in res]
-        for key, val_check in zip(out_types, type_file_ends):
-            all_output_types[key] = [res for res in results_filenames if val_check in res]
-
-
-        out_types = ['max_proj', 'steer_gauss', 'min_proj', 'threshold', 'mesh_segment', '_mesh_segmentation']
-        type_file_ends = ['max', '2order_thetas.png', 'min.png', 'threshold.png', 'mesh_segment', '_mesh_segmentation']
-        results_filenames = [res for res in os.listdir(self.__save_destdir+'/basal') if 'png' in res]
-        for key, val_check in zip(out_types, type_file_ends):
-            all_output_types[key] = [res for res in results_filenames if val_check in res]
-
-        md_filename = subdir[0:10]+'.md'
+        md_filename = subdir[0:10]+'.md' if len(subdir) >= 10 else subdir+'.md'
         results_base_dir = os.path.basename(self.__save_destdir)
-        with open(os.path.join(self.__save_destdir,md_filename), 'w') as f:
+
+        all_outpts = {'Maximum projection': 'max', 
+                    'Steerable filter response': '2order_thetas.png', 
+                    'Minimum projection': 'min.png',
+                    'Thresholded image': 'threshold.png', 
+                    'Segmented mesh': '_mesh_segmentation'}
+
+        subdict = {key: val for key, val in all_outpts.items() if key in include_steps} if include_steps else all_outpts
+
+        with open(os.path.join(self.__save_destdir, md_filename), 'w') as f:
             f.write('---\n')
-            f.write(f'title: {subdir} basal and cytosolic meshwork results.')
+            f.write(f'title: {results_base_dir} basal and cytosolic meshwork results.')
             f.write('\n---\n\n\n')
-            for i in range(len(curr_filenames)):
-                f.write(f'# {curr_filenames[i]}')
+            for file in curr_planes['File name']:
+                fname = file.split('.')[0]
+                fstack = [f for f in filenames['main'] if fname in f][0]
+                f.write(f'# {fname}')
                 f.write('\n\n')
-                if len(all_output_types['original']) > 0:
-                    f.write(f'![](main/{all_output_types["original"][i]})'+'{ width=700px } ')
+                f.write(f'![](main/{fstack})'+'{ width=700px }  ')
                 f.write('\n\n')
-                f.write('## Basal network  ')
-                f.write('\n\n')
-                f.write('**Maximum z-projection (raw)**  ')
-                f.write('\n')
-                if len(all_output_types['max_proj']) > 0:
-                    f.write(f'![](basal/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                # f.write('**Steerable second order Gaussian filter**  ')
-                # f.write('\n')
-                # if len(all_output_types['steer_gauss']) > 0:
-                #     f.write(f'![](basal/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
-                # f.write('\n')
-                f.write('**Minimum z-projection of steerable filter response**  ')
-                f.write('\n')
-                if len(all_output_types['min_proj']) > 0:
-                    f.write(f'![](basal/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
-                # f.write('\n')
-                # f.write('**Binary thresholding**  ')
-                # f.write('\n')
-                # if len(all_output_types['threshold']) > 0:
-                #     f.write(f'![](basal/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
-                # f.write('\n')
-                # f.write('**Mesh segmentation**  ')
-                # f.write('\n')
-                # if len(all_output_types['mesh_segment']) > 0:
-                #     f.write(f'![](basal/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
-                f.write('\n')
-                f.write('**Mesh segmentation**  ')
-                f.write('\n')
-                if len(all_output_types['_mesh_segmentation']) > 0:
-                    f.write(f'![](basal/{all_output_types["_mesh_segmentation"][i]})'+'{ height=300px }  ')
-                f.write('\n\n')
-                f.write('## Cytosolic network  ')
-                f.write('\n\n')
-                f.write('**Maximum z-projection (raw)**  ')
-                f.write('\n')
-                if len(all_output_types['max_proj']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["max_proj"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                # f.write('**Steerable second order Gaussian filter**  ')
-                # f.write('\n')
-                # if len(all_output_types['steer_gauss']) > 0:
-                #     f.write(f'![](cytosolic/{all_output_types["steer_gauss"][i]})'+'{ height=300px }  ')
-                # f.write('\n')
-                f.write('**Minimum z-projection of steerable filter response**  ')
-                f.write('\n')
-                if len(all_output_types['min_proj']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["min_proj"][i]})'+'{ height=300px }  ')
-                # f.write('\n')
-                # f.write('**Binary thresholding**  ')
-                # f.write('\n')
-                # if len(all_output_types['threshold']) > 0:
-                #     f.write(f'![](cytosolic/{all_output_types["threshold"][i]})'+'{ height=300px }  ')
-                f.write('\n')
-                # f.write('**Mesh segmentation**  ')
-                # f.write('\n')
-                # if len(all_output_types['mesh_segment']) > 0:
-                #     f.write(f'![](cytosolic/{all_output_types["mesh_segment"][i]})'+'{ height=600px }  ')
-                # f.write('\n')
-                f.write('**Mesh segmentation**  ')
-                f.write('\n')
-                if len(all_output_types['_mesh_segmentation']) > 0:
-                    f.write(f'![](cytosolic/{all_output_types["_mesh_segmentation"][i]})'+'{ height=300px }  ')
+                for cdir in ('basal', 'cytosolic'):
+                    all_cnames = [f for f in filenames[cdir] if fname in f]
+                    f.write(f'## {cdir.title()} network  ')
+                    f.write('\n\n')
+                    for subtitle, ending in subdict.items():
+                        try: 
+                            curr_cname = [f for f in all_cnames if ending in f]
+                            if len(curr_cname) == 1: 
+                                f.write(f'**{subtitle}**  ')
+                                f.write('\n')
+                                f.write(f'![]({cdir}/{curr_cname[0]})'+'{ height=300px }  ')
+                                f.write('\n\n')
+                        except NameError:
+                            pass
 
 
                 f.write('\n\n\n')
@@ -400,14 +354,14 @@ class ActImgCollection:
         t_start = time.time()
         for subdir in tqdm(self.only_subdirs, desc='cell types'):
 
-            curr_filenames, curr_filepath = self.initialise_curr_filenames_and_planes(subdir=subdir)
+            curr_filenames, curr_filepath, curr_planes = self.initialise_curr_filenames_and_planes(subdir=subdir)
             self.initialise_res_dir(subdir=subdir)
 
             for name in tqdm(curr_filenames, desc='files'):
-                self.analysis_pipeline(filename=name,filepath=curr_filepath)
+                self.analysis_pipeline(filename=name,filepath=curr_filepath,curr_planes=curr_planes)
         
             if visualise_as_html:
-                self.visualise_html(subdir=subdir)
+                self.visualise_html(subdir=subdir, curr_planes=curr_planes, include_steps=['Maximum projection','Minimum projection','Segmented mesh'])
 
         delta_t = time.time() - t_start
         print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
