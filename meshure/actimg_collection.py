@@ -1,4 +1,4 @@
-import os, yaml, time, subprocess, shutil, warnings
+import os, csv, yaml, time, subprocess, shutil, warnings
 import numpy as np 
 import pandas as pd
 from dataclasses import dataclass
@@ -250,7 +250,24 @@ class ActImgCollection:
         if func_spcify['vis_stack']:
             eval(f"actin_img_instance.visualise_stack({func_spcify['vis_params']})")    
 
-
+    def extract_parameters(self, actimgbinary):
+        if 'activation_time' not in actimgbinary.estimated_parameters['cell_type'].keys():
+            actimgbinary.estimated_parameters['cell_type']['activation_time'] = actimgbinary._get_activation_time()
+        nrep = actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'].shape[0]
+        unit = actimgbinary.estimated_parameters['mesh_holes']['unit']
+        df = pd.DataFrame({
+            'filename': np.repeat(actimgbinary.title, nrep),
+            'cell_type': np.repeat(actimgbinary.estimated_parameters['cell_type']['type'], nrep),
+            'mesh_type': np.repeat(actimgbinary.estimated_parameters['cell_type']['mesh_type'], nrep),
+            'activation_time': np.repeat(actimgbinary.estimated_parameters['cell_type']['activation_time'], nrep),
+            f'cell_surface_area_{actimgbinary.estimated_parameters["cell_surface_area"]["unit"]}': 
+            np.repeat(actimgbinary.estimated_parameters['cell_surface_area']['area'], nrep),
+            'mesh_density': actimgbinary.estimated_parameters['mesh_density'],
+            f'equivalent_diameter_area_{unit}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'equivalent_diameter_area_{unit}'],
+            f'area_{unit}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'area_{unit}'],
+            f'perimeter_{unit.split("^")[0]}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'perimeter_{unit.split("^")[0]}']}) 
+        self.all_dfs_list.append(df) 
+        
 
     def analysis_pipeline(self, filename, filepath, curr_planes):
         """ ??? """
@@ -264,21 +281,21 @@ class ActImgCollection:
             for step in list(self.pipeline_outline.keys()):
                 self.pipeline_construct(actin_img_instance, step)
             actimgbinary = get_ActImgBinary(actin_img_instance)
+            actimgbinary.estimated_parameters['cell_type'] = {'type': cell_type, 'mesh_type': mesh_type}
             try:
                 actimgbinary.surface_area(n_dilations_erosions=(1,3),closing_structure=None,extra_dilate_fill=True)
                 actimgbinary.mesh_holes_area()
                 actimgbinary.visualise_segmentation(save=True, dest_dir=dest)
                 actimgbinary.mesh_density()
                 actimgbinary.quantify_mesh()
+                
                 actimgbinary.save_estimated_parameters(dest)
-                actimgbinary.estimated_parameters['cell_type'] = {'type': cell_type, 'mesh_type': mesh_type}
             except:
-                self.failed_segmentations += f'{actimgbinary.title}--{dest}' 
+                self.failed_segmentations.append(f'{actimgbinary.title}--{mesh_type}')
+            else: 
+                self.extract_parameters(actimgbinary)
             finally:
                 actin_img_instance.nuke()
-
-
-
 
 
     def visualise_html(self, subdir: str, curr_planes: pd.DataFrame, include_steps: list=None):
@@ -346,12 +363,13 @@ class ActImgCollection:
             yaml.dump(analysis_parameters, f, default_flow_style=False)
 
 
-    def run_analysis(self, visualise_as_html=False, return_parameters=False):
+    def run_analysis(self, visualise_as_html: bool=False, return_parameters: bool=False, save_as_single_csv: bool=True):
         """ Runs analysis on selected subdirs. """
         if self.parameters is None: 
             raise AttributeError('self.parameters has not been initialised; call self.parametrise_pipeline().')
 
         t_start = time.time()
+        self.all_dfs_list = []
         for subdir in tqdm(self.only_subdirs, desc='cell types'):
 
             curr_filenames, curr_filepath, curr_planes = self.initialise_curr_filenames_and_planes(subdir=subdir)
@@ -363,14 +381,21 @@ class ActImgCollection:
             if visualise_as_html:
                 self.visualise_html(subdir=subdir, curr_planes=curr_planes, include_steps=['Maximum projection','Minimum projection','Segmented mesh'])
 
+            if save_as_single_csv: 
+                self.all_parameters_df = pd.concat(self.all_dfs_list)
+                self.all_parameters_df.to_csv(
+                    os.path.join(self.__save_destdir, '../all_params_csv.csv'),sep=',',index=False,header=True)
+                    
         delta_t = time.time() - t_start
         print(f'Analysis completed in {time.strftime("%H:%M:%S", time.gmtime(delta_t))}.')
+
+
 
         n_failed = len(self.failed_segmentations)
         if n_failed > 0:
             response = input(f'Some segmentations failed, see saved logs. View {n_failed} failed cases? [y/n]\n')
             if response == ('y','Y'):
-                print(self.failed_segmentations)
+                [print(name) for name in self.failed_segmentations]
             elif response == ('n','N'):
                 pass
             else: 

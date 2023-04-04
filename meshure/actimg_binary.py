@@ -243,8 +243,11 @@ class ActImgBinary(ActImg):
         # if label overlaps with contour, remove it 
         labs_to_rm = []
         for r_plus, c_plus in zip((1,-1,0,0,1,-1,1,-1), (0,0,1,-1,1,-1,-1,1)):
-            newlabs = [*np.unique(labels[self.contour_ceil[:,0]+r_plus, self.contour_ceil[:,1]+c_plus])]
-            labs_to_rm += newlabs
+            try: 
+                newlabs = [*np.unique(labels[self.contour_ceil[:,0]+r_plus, self.contour_ceil[:,1]+c_plus])]
+                labs_to_rm += newlabs
+            except IndexError: 
+                pass
         rm_inds = np.unique(np.asarray(labs_to_rm))
 
         # remove labels in rm_inds only if they are smaller than 20 px
@@ -347,7 +350,7 @@ class ActImgBinary(ActImg):
             return None
 
 
-    def mesh_holes_area(self, unit: str='um', saturation_area: float=1.5, visualise: bool=False, return_outp: bool=False):
+    def mesh_holes_area(self, unit: str='um', saturation_area: float=1, visualise: bool=False, return_outp: bool=False):
         """ Returns the labels by area and visualises mesh holes coloured by area size with specified unit and saturation 
         """
         if not self.cell_surface_area:
@@ -470,6 +473,9 @@ class ActImgBinary(ActImg):
         self.estimated_parameters['mesh_holes'] = {'hole_parameters': hole_parameters, 'unit': self.mesh_holes["unit"]}
         return None
 
+    def _get_activation_time(self):
+        activation_time = [char for char in self.title.split('_') if 'min' in char][0] 
+        return activation_time
 
     def save_estimated_parameters(self, dest_dir: str=os.getcwd()): 
         if not os.path.exists(dest_dir):
@@ -479,16 +485,15 @@ class ActImgBinary(ActImg):
         if not os.path.exists(dest):
             os.mkdir(dest)
 
-        if len(self.log) > 0:
-            self.log = self.title + '\n\n' + self.log
-            with open(os.path.join(dest, f'{self.title.split(".")[0]}_log.txt')) as f:
-                f.write(self.log)
+        if 'activation_time' not in self.estimated_parameters['cell_type'].keys():
+            self.estimated_parameters['cell_type']['activation_time'] = self._get_activation_time()
 
         try:
-            json_params = json.dumps({'cell_type': self.estimated_parameters['cell_type'],
-                                      'resolution': self.resolution,
-                                      'cell_surface_area': self.estimated_parameters['cell_surface_area'],
-                                      'mesh_density': self.estimated_parameters['mesh_density']})
+            json_params = json.dumps({'filename': self.title,
+                                      'cell_type': self.estimated_parameters['cell_type'],
+                                    'resolution': self.resolution,
+                                    'cell_surface_area': self.estimated_parameters['cell_surface_area'],
+                                    'mesh_density': self.estimated_parameters['mesh_density']})
             file = 'params_'+self.title.split(".")[0]+'.json' 
             with open(os.path.join(dest, file), 'w') as f:
                 f.write(json_params)
@@ -497,6 +502,14 @@ class ActImgBinary(ActImg):
                 os.path.join(dest, 'params_'+self.title.split(".")[0]+'.csv'),sep=',',index=False,header=True)
         except: 
             raise RuntimeError('There was a problem writing the parameters. See log and check pipeline.')
+        return None
+
+
+    def save_log(self,dest):
+        if len(self.log) > 0:
+            self.log = self.title + '\n\n' + self.log
+            with open(os.path.join(dest, f'{self.title.split(".")[0]}_log.txt')) as f:
+                f.write(self.log)
         return None
 
 def get_ActImgBinary(actimg): 

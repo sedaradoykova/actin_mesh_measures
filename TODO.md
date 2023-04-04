@@ -197,3 +197,5 @@
 
 - [ ] parallelise? 
 - [ ] command line interfaces?
+- [ ] manual meta_data specification function
+

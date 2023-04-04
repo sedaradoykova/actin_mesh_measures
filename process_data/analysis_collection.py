@@ -8,6 +8,8 @@ from meshure.actimg_collection import ActImgCollection, list_files_dir_str
 # only_subdirs = ['Untransduced','CARs']
 ## 15/03 Analysis completed in 00:00:57.
 ## 02/04 Analysis completed in 00:01:23.
+## 03/04 Analysis completed in 00:01:56.
+## 04/04 Analysis completed in 00:01:20.
 
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data")
 focal_plane_filename = os.path.join(data_path, 'basal_cytosolic_focal_planes_CARs_noCAR_untr.csv')
@@ -15,7 +17,7 @@ only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_
 ## OLD Analysis completed in 00:07:47.
 ## 15/03 Analysis completed in 00:10:28.
 ## 11/03 Analysis completed in 00:17:50.
-## 02/04 
+## 04/04 Analysis completed in 00:12:14.
 
 #theta_x6 = np.arange(0,360,60)
 #theta_x3 = np.arange(60,360,120)
@@ -29,7 +31,7 @@ sample_data.only_subdirs = only_subdirs
 sample_data.parametrise_pipeline(*parameters)
 #sample_data.parametrise_pipeline(None, None, theta_x6, 2, None) ### for background threshold
 
-sample_data.run_analysis(visualise_as_html=True, return_parameters=False)
+sample_data.run_analysis(visualise_as_html=True, return_parameters=False, save_as_single_csv=True)
 
 
 #### some interactive features to be included further 

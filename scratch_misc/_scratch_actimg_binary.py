@@ -9,7 +9,7 @@ data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deco
 
 
 subs = [1]
-actimg = get_ActImg('1min_FOV8_decon_bottom_left.tif ', os.path.join(data_path, 'CARs_8.11.22_processed_imageJ')) 
+actimg = get_ActImg('8min_FOV7_decon_top_right.tif ', os.path.join(data_path, 'CARs_8.11.22_processed_imageJ')) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=subs,visualise=False)
 actimg.z_project_min()
