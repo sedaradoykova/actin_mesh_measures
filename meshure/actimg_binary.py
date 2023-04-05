@@ -240,8 +240,9 @@ class ActImgBinary(ActImg):
         labels = measure.label(self.mesh_inverted, connectivity=1) # 4-connectivity for 2d images
 
         # shift the contour by a pixel in 8 orthogonal directions
-        # if label overlaps with contour, remove it 
+        # if label overlaps with contour, mark to remove it potentially 
         labs_to_rm = []
+        labs_outside = []
         for r_plus, c_plus in zip((1,-1,0,0,1,-1,1,-1), (0,0,1,-1,1,-1,-1,1)):
             try: 
                 newlabs = [*np.unique(labels[self.contour_ceil[:,0]+r_plus, self.contour_ceil[:,1]+c_plus])]
@@ -249,12 +250,23 @@ class ActImgBinary(ActImg):
             except IndexError: 
                 pass
         rm_inds = np.unique(np.asarray(labs_to_rm))
-
         # remove labels in rm_inds only if they are smaller than 20 px
         for labval in rm_inds: 
             labinds = np.where(labels==labval) 
             if len(labinds[0]) <=20:
                 labels[labinds] = 0
+        # check if any labels lie outside of the cell outline and remove them          
+        for labval in np.unique(labels): 
+            labinds = np.where(labels==labval)
+            outline_coords = np.nonzero(self.mesh_outline)
+            for n in range(2):
+                if ( ( (np.min(labinds[n]) < np.min(outline_coords[n])) or (np.max(labinds[n]) > np.max(outline_coords[n])) ) and 
+                    ( (0 in labinds[n]) or (self.shape[n] in labinds[n]) ) ):
+                    labs_outside += newlabs
+        rm_inds_outside = np.unique(np.asarray(labs_outside))
+        for labval in rm_inds_outside: 
+            labinds = np.where(labels==labval) 
+            labels[labinds] = 0
 
         self.labels = labels
         if return_outpt:
@@ -322,6 +334,13 @@ class ActImgBinary(ActImg):
                 else: 
                     self.log += msg
                 raise RuntimeError('Surface area not segmented.')
+            else:
+                self.cell_surface_area = cell_surface_area
+                self.estimated_parameters['cell_surface_area'] = {'area': cell_surface_area, 'unit': 'um^2'}
+                if return_outpt:
+                    return cell_surface_area
+                else:
+                    return None
 
         else: 
             self.cell_surface_area = cell_surface_area
@@ -381,6 +400,7 @@ class ActImgBinary(ActImg):
         f_labels_transparent[np.where(np.isclose(f_labels_transparent, 0))] = np.nan
         if saturation_area is not None: 
             f_labels_transparent[f_labels_transparent >= saturation_area] = saturation_area
+            self.__saturation_area = saturation_area if saturation_area else None
 
         if visualise:
             plt.imshow(mesh_contour_transparent, cmap='gray')
@@ -439,7 +459,14 @@ class ActImgBinary(ActImg):
         plt.title(f'Segmented mesh holes ({self.mesh_holes["unit"]})')
         plt.imshow(self._mesh_contour_transparent, cmap='gray')
         plt.imshow(self._f_labels_transparent, cmap='coolwarm_r')
-        plt.colorbar(fraction=0.05, pad=0.01)
+        colbar = plt.colorbar(fraction=0.05, pad=0.01)
+        if self.__saturation_area is not None:
+            new_ticks = np.linspace(0, self.__saturation_area, 6)
+            new_ticklabs = [f'{n:.2e}' for n in new_ticks]
+            new_ticklabs[-1] = f'>={self.__saturation_area:.2e}'
+            new_ticklabs[0] = '0'
+            colbar.set_ticks(new_ticks)
+            colbar.set_ticklabels(new_ticklabs)
         plt.axis('off')
         plt.tight_layout()
         if save: 
