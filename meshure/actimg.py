@@ -128,8 +128,11 @@ class ActImg:
                 raise ValueError('Raw data has not been processed yet.')
             if ind < 1 or ind > self.manipulated_depth:
                 raise ValueError(f'ind must be an integer in range (1, {self.manipulated_depth})')        
-            if self._projected or self.manipulated_depth == 1:
-                plt.imshow(self.manipulated_stack, cmap=colmap)
+            if self._projected and self.manipulated_substack_inds:
+                ax = plt.subplot()
+                ax.imshow(self.manipulated_stack, cmap=colmap)
+                ax.text(0.7, 0.05, 'n={count}'.format(count=self.manipulated_substack_inds),color='#F2F2F2',fontsize=8,
+                        transform=ax.transAxes)
             else: 
                 plt.imshow(self.manipulated_stack[ind-1], cmap=colmap)        
         elif imtype=='original':
@@ -331,6 +334,7 @@ class ActImg:
 
             self.manipulated_stack = np.min(data,0)
             self.manipulated_depth = 1
+            self.manipulated_substack_inds = substack if not self.manipulated_substack_inds else self.manipulated_substack_inds
             self._projected = True
             self._call_hist('z_project_min')
             return None
@@ -383,6 +387,7 @@ class ActImg:
 
         self.manipulated_stack = np.max(data,0) if len(data.shape)==3 else data
         self.manipulated_depth = 1
+        self.manipulated_substack_inds = substack if not self.manipulated_substack_inds else self.manipulated_substack_inds
         self._projected = True
         self._call_hist('z_project_max')
         return None
