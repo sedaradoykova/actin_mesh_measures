@@ -18,6 +18,8 @@ only_subdirs = ['Untransduced_1.11.22_processed_imageJ','CARs_8.11.22_processed_
 ## 15/03 Analysis completed in 00:10:28.
 ## 11/03 Analysis completed in 00:17:50.
 ## 04/04 Analysis completed in 00:12:14.
+## 05/04 Analysis completed in 00:21:51.
+## 05/04 Analysis completed in 00:11:30.
 
 #theta_x6 = np.arange(0,360,60)
 #theta_x3 = np.arange(60,360,120)

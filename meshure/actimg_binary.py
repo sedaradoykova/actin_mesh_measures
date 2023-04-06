@@ -44,10 +44,10 @@ class ActImgBinary(ActImg):
 
 
 
-    def _get_contour(self, img_in=None, n_dilations: int=3, closing_structure: any=None, return_outpt: bool=False):
+    def _get_contour(self, img_in=None, n_dilations: int=0, closing_structure: any=None, return_outpt: bool=False):
         """ Returns the longest contour as a mask, all contours detected, and the index of the longest contour. 
         Note: close and dilate image serially to ensure robustness to small gaps and inconsistencies in cell boundary;
-        find contours and the index of the longest contour; map contours onto new mask. 
+        find contours and the index of the longest contour; map contours onto self mask. 
         Default behaviour: copy binary mesh and get largest contour = cell surface. 
         Note: there is a 1 pixel additional margin because get_boundaries returns a float index (half a pixel is permissible); 
         therefore, the boundary is two-pixels thick, rounding up and down. 
@@ -102,7 +102,7 @@ class ActImgBinary(ActImg):
             return None
 
 
-    def _fill_contour_img(self, img_in=None, n_erosions: int=4, extra_dilate_fill: bool=True, return_outpt: bool=False):
+    def _fill_contour_img(self, img_in=None, n_erosions: int=2, extra_dilate_fill: bool=True, return_outpt: bool=False):
         """ Returns a filled mask of the cell surface. Uses serial erosions to avoid artifacts.
         Arguments
         ---------
@@ -138,6 +138,18 @@ class ActImgBinary(ActImg):
         for n in np.arange(n_erosions):
             eroded_contour_img = ski_morph.binary_erosion(eroded_contour_img).astype('int')
         
+        contours = measure.find_contours(eroded_contour_img)
+        ind_max = np.argmax([x.shape[0] for x in contours])
+        contour_ceil = np.ceil(contours[ind_max]).astype('int')
+        contour_floor = np.floor(contours[ind_max]).astype('int')
+
+        contour_img = np.zeros(eroded_contour_img.shape)
+        contour_img[contour_ceil[:,0], contour_ceil[:,1]] = 1
+        contour_img[contour_floor[:,0], contour_floor[:,1]] = 1
+
+        self.contour_img, self.contours, self.ind_max = contour_img, contours, ind_max
+        self.contour_ceil, self.contour_floor = contour_ceil, contour_floor
+
         if img_in is None: 
             self.filled_contour_img = eroded_contour_img
         if return_outpt: 
@@ -255,18 +267,9 @@ class ActImgBinary(ActImg):
             labinds = np.where(labels==labval) 
             if len(labinds[0]) <=20:
                 labels[labinds] = 0
-        # check if any labels lie outside of the cell outline and remove them          
-        for labval in np.unique(labels): 
-            labinds = np.where(labels==labval)
-            outline_coords = np.nonzero(self.mesh_outline)
-            for n in range(2):
-                if ( ( (np.min(labinds[n]) < np.min(outline_coords[n])) or (np.max(labinds[n]) > np.max(outline_coords[n])) ) and 
-                    ( (0 in labinds[n]) or (self.shape[n] in labinds[n]) ) ):
-                    labs_outside += newlabs
-        rm_inds_outside = np.unique(np.asarray(labs_outside))
-        for labval in rm_inds_outside: 
-            labinds = np.where(labels==labval) 
-            labels[labinds] = 0
+        # # check if any labels lie outside of the cell outline and remove them          
+        inds = np.where(self.filled_contour_img==0)
+        labels[inds] = 0
 
         self.labels = labels
         if return_outpt:

@@ -27,7 +27,6 @@ class ActImgCollection:
             '02': {'func': 'nuke', 'params': None, 'vis_stack': False},
             '03': {'func': 'normalise', 'params': None, 
                    'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
-
             '04': {'func': 'steerable_gauss_2order_thetas', 
                    'params': "thetas=self.parameters['thetas'],sigma=self.parameters['sigma'],substack=self.parameters['substack'],visualise=False",
                    'vis_stack': False, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
@@ -283,13 +282,13 @@ class ActImgCollection:
             actimgbinary = get_ActImgBinary(actin_img_instance)
             actimgbinary.estimated_parameters['cell_type'] = {'type': cell_type, 'mesh_type': mesh_type}
             try:
-                actimgbinary.surface_area(n_dilations_erosions=(1,3),closing_structure=None,extra_dilate_fill=True)
+                actimgbinary.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True)
                 actimgbinary.mesh_holes_area()
                 actimgbinary.visualise_segmentation(save=True, dest_dir=dest)
                 actimgbinary.mesh_density()
                 actimgbinary.quantify_mesh()
                 
-                actimgbinary.save_estimated_parameters(dest)
+                #actimgbinary.save_estimated_parameters(dest)
             except:
                 self.failed_segmentations.append(f'{actimgbinary.title}--{mesh_type}')
             else: 
