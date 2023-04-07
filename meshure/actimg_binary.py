@@ -303,14 +303,14 @@ class ActImgBinary(ActImg):
         if verbose:
             print(f'Surface area (um^2)  =  {cell_surface_area:.2f}')
         if cell_surface_area/(self.shape[0]*self.shape[1]) > 0.7:
-            msg = f'{self.title}: surface area too large. Inspect manually. \n\n'
+            msg = f'Segmented surface area too large. Inspect manually.\n'
             if verbose: 
                 print(msg)
             else:
                 self.log += msg
 
         elif cell_surface_area < np.sum(self.binary_mesh)*(self.resolution['pixel_size_xy']**2)/1e6 - cell_surface_area:
-            msg = f'{self.title} segmented surface area too small. Checking if it touches boundaries. \n\n'
+            msg = f'- Segmented surface area too small. Checking if it touches boundaries.\n'
             if verbose:  
                 print(msg)
             else:
@@ -324,14 +324,14 @@ class ActImgBinary(ActImg):
                 print(f'Surface area (um^2)  =  {cell_surface_area:.2f}')
 
             if cell_surface_area < np.sum(self.binary_mesh)*(self.resolution['pixel_size_xy']**2)/1e6 - cell_surface_area:
-                msg = f'{self.title}: surface area too small despite filing edges. Inspect manually. \n\n'
+                msg = f'- Segmented surface area too small despite filling edges. Inspect manually.\n'
                 if verbose: 
                     print(msg)
                 else: 
                     self.log += msg
                 raise RuntimeError('Surface area not segmented.')
             elif cell_surface_area/(self.shape[0]*self.shape[1]) > 0.7:
-                msg = f'{self.title}: surface area too large after filing edges. Inspect manually. \n\n'
+                msg = f'- Segmented surface area too large after filling edges. Inspect manually.\n'
                 if verbose: 
                     print(msg)
                 else: 
@@ -503,9 +503,11 @@ class ActImgBinary(ActImg):
         self.estimated_parameters['mesh_holes'] = {'hole_parameters': hole_parameters, 'unit': self.mesh_holes["unit"]}
         return None
 
+
     def _get_activation_time(self):
         activation_time = [char for char in self.title.split('_') if 'min' in char][0] 
         return activation_time
+
 
     def save_estimated_parameters(self, dest_dir: str=os.getcwd()): 
         if not os.path.exists(dest_dir):
@@ -535,11 +537,15 @@ class ActImgBinary(ActImg):
         return None
 
 
-    def save_log(self,dest):
+    def save_log(self, dest_dir: str=os.getcwd(), dest_file: str=None):
         if len(self.log) > 0:
-            self.log = self.title + '\n\n' + self.log
-            with open(os.path.join(dest, f'{self.title.split(".")[0]}_log.txt')) as f:
-                f.write(self.log)
+            self.log = self.title + '\n\n' + self.log + '\n\n'
+            if not dest_file: 
+                with open(os.path.join(dest_dir, f'{self.title.split(".")[0]}_log.txt'), 'a') as f:
+                    f.write(self.log)
+            else: 
+                with open(os.path.join(dest_dir, dest_file), 'a') as f:
+                    f.write(self.log)
         return None
 
 def get_ActImgBinary(actimg): 
