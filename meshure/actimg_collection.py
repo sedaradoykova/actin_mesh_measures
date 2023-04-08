@@ -184,7 +184,7 @@ class ActImgCollection:
 
     def initialise_res_dir(self, subdir):
         """ Initialise results directory. """
-        self.__save_destdir = self.res_path if self.res_path else os.path.join(self.root_path, '_results_'+subdir[0:4])
+        self.__save_destdir = self.res_path if self.res_path else os.path.join(self.root_path, '_results_'+subdir)
         if not os.path.exists(self.__save_destdir):
             os.mkdir(self.__save_destdir)
 
@@ -287,8 +287,8 @@ class ActImgCollection:
                 actimgbinary.visualise_segmentation(save=True, dest_dir=dest)
                 actimgbinary.mesh_density()
                 actimgbinary.quantify_mesh()
-                
                 #actimgbinary.save_estimated_parameters(dest)
+                actimgbinary.save_log(dest_dir=self.__save_destdir, dest_file='failed_segmentation_logs.txt')
             except:
                 self.failed_segmentations.append(f'{actimgbinary.title}--{mesh_type}')
             else: 
@@ -351,7 +351,7 @@ class ActImgCollection:
 
         pandoc_input = os.path.join(self.root_path, results_base_dir, md_filename)
         if shutil.which('pandoc') is None:
-            warnings.warn(f'Pandoc is not installed. Returning only {pandoc_input.replace(".md", ".html")}.')
+            warnings.warn(f'Pandoc is not installed. Returning only {pandoc_input}.')
         else: 
             subprocess.run(f'pandoc -t slidy -s {pandoc_input} -o {pandoc_input.replace(".md", ".html")}', shell=True)
 
