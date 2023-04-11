@@ -41,6 +41,7 @@ class ActImgBinary(ActImg):
                                      'cell_type': None}
         self.cell_surface_area, self.mesh_holes = None, None
         self.log = ''
+        self.__saturation_area = None
 
 
 
@@ -372,7 +373,8 @@ class ActImgBinary(ActImg):
             return None
 
 
-    def mesh_holes_area(self, unit: str='um', saturation_area: float=1, visualise: bool=False, return_outp: bool=False):
+    def mesh_holes_area(self, unit: str='um', saturation_area: float=1, visualise: bool=False, return_outp: bool=False,
+                        scale_bar: bool=True, bar_locate: str='upper left'):
         """ Returns the labels by area and visualises mesh holes coloured by area size with specified unit and saturation 
         """
         if not self.cell_surface_area:
@@ -401,7 +403,7 @@ class ActImgBinary(ActImg):
 
         f_labels_transparent = f_labels_area.copy()
         f_labels_transparent[np.where(np.isclose(f_labels_transparent, 0))] = np.nan
-        if saturation_area is not None: 
+        if saturation_area is not None  and np.isclose(np.max(f_labels_transparent), saturation_area): 
             f_labels_transparent[f_labels_transparent >= saturation_area] = saturation_area
             self.__saturation_area = saturation_area if saturation_area else None
 
@@ -409,13 +411,18 @@ class ActImgBinary(ActImg):
             plt.imshow(mesh_contour_transparent, cmap='gray')
             plt.imshow(f_labels_transparent, cmap='coolwarm_r')
             colbar = plt.colorbar()
-            if saturation_area is not None:
+            if saturation_area is not None and np.isclose(np.max(f_labels_transparent), saturation_area):
                 new_ticks = np.linspace(0, saturation_area, 6)
                 new_ticklabs = [f'{n:.2e}' for n in new_ticks]
                 new_ticklabs[-1] = f'>={saturation_area:.2e}'
                 new_ticklabs[0] = '0'
                 colbar.set_ticks(new_ticks)
                 colbar.set_ticklabels(new_ticklabs)
+            if scale_bar: 
+                # convert barsize to nm if necessary because scale is specified in nm  
+                barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+                scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+                plt.gca().add_artist(scalebar)
             plt.title(f'Area of mesh holes ({unit}$^2$)')
             plt.axis('off'); plt.tight_layout(); plt.show()
 
@@ -426,7 +433,7 @@ class ActImgBinary(ActImg):
         else:
             return None
         
-    def visualise_segmentation(self, save: bool=False, dest_dir: str=os.getcwd()):
+    def visualise_segmentation(self, save: bool=False, dest_dir: str=os.getcwd(), scale_bar: bool=True, bar_locate: str='upper left'):
         """ Visualise the segmentation steps: binary mesh, cell surface, mesh holes. 
         """
         if not isinstance(save, bool):
@@ -451,25 +458,40 @@ class ActImgBinary(ActImg):
         plt.subplot(1,3,1)
         plt.title('Segmented mesh')
         plt.imshow(self.binary_mesh, cmap='gray')
+        if scale_bar: 
+            # convert barsize to nm if necessary because scale is specified in nm  
+            barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+            scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+            plt.gca().add_artist(scalebar)
         plt.axis('off')
         plt.subplot(1,3,2)
         ar, un = self.estimated_parameters["cell_surface_area"].values()
         plt.title(f'Segmented cell surface ({ar:.2f} {un})')
         plt.imshow(self.mesh_outline, cmap='gray')
         plt.imshow(self.filled_contour_img, cmap='gray', alpha=0.7)
+        if scale_bar: 
+            # convert barsize to nm if necessary because scale is specified in nm  
+            barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+            scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+            plt.gca().add_artist(scalebar)
         plt.axis('off')
         plt.subplot(1,3,3)
         plt.title(f'Segmented mesh holes ({self.mesh_holes["unit"]})')
         plt.imshow(self._mesh_contour_transparent, cmap='gray')
         plt.imshow(self._f_labels_transparent, cmap='coolwarm_r')
         colbar = plt.colorbar(fraction=0.05, pad=0.01)
-        if self.__saturation_area is not None:
+        if self.__saturation_area is not None and np.isclose(np.max(self._f_labels_transparent), self.__saturation_area):
             new_ticks = np.linspace(0, self.__saturation_area, 6)
             new_ticklabs = [f'{n:.2e}' for n in new_ticks]
             new_ticklabs[-1] = f'>={self.__saturation_area:.2e}'
             new_ticklabs[0] = '0'
             colbar.set_ticks(new_ticks)
             colbar.set_ticklabels(new_ticklabs)
+        if scale_bar: 
+            # convert barsize to nm if necessary because scale is specified in nm  
+            barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+            scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+            plt.gca().add_artist(scalebar)
         plt.axis('off')
         plt.tight_layout()
         if save: 

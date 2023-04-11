@@ -246,7 +246,8 @@ class ActImg:
                     ax = plt.subplot(figrows,figcols,n+1)
                     ax.imshow(image, cmap=colmap, vmin=absmin, vmax=absmax)
                     if (scale_bar and self.resolution is not None):
-                        scalebar = ScaleBar(self.resolution, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
+                        barsize = self.resolution['pixel_size_xy']*1e3 if self.resolution['unit'] == 'micron' else self.resolution['pixel_size_xy']
+                        scalebar = ScaleBar(barsize, 'nm', box_color='None', color='#F2F2F2', location=bar_locate) 
                         ax.add_artist(scalebar)
                     ax.set_axis_off()
                     if substack and self.manipulated_substack_inds:
@@ -736,7 +737,10 @@ class ActImg:
         response_stack = np.min(response_stack, 0)
 
         if visualise:
-            titles = [f'n_{str(n)}' for n in np.arange(substack[0],substack[1]+1)]
+            if len(substack)==2:
+                titles = [f'n_{str(n)}' for n in np.arange(substack[0],substack[1]+1)]
+            elif visualise and len(substack)==1:
+                titles = [f'n_{str(substack[0])}']
             figrows, figcols = get_fig_dims(len(titles))
             for n, (image, title) in enumerate(zip(np.rollaxis(response_stack, 0), titles)):
                 ax = plt.subplot(figrows,figcols,n+1)
