@@ -8,28 +8,30 @@ from meshure.actimg_binary import ActImgBinary, get_ActImgBinary
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data/")
 
 #3min_FOV4_decon_top_right
-subs = [8,10]
-actimg = get_ActImg('8min_UNT_FOV3_decon.tif ', os.path.join(data_path, 'all_Untransduced')) 
+subs = [2,3] #[8,10]
+actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif ', os.path.join(data_path, 'all_CARs')) 
 actimg.normalise()
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=subs,visualise=False)
+#actimg.manipulated_stack = actimg.manipulated_stack[0]
+actimg.visualise_stack(imtype='manipulated',save=True,colmap='gray')
+actimg.visualise_stack(imtype='original',substack=subs,save=True,colmap='gray')
+actimg.visualise(imtype='original',ind=2,save=True,colmap='gray')
+
 actimg.z_project_min()
+#actimg.z_project_max(subs)
 #actimg.visualise_stack('manipulated')
 #actimg._threshold_preview_cases(factors=[+0.25, +0.5])
 actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
 
-actimg.meshwork_density(False)
-actimg.meshwork_size(False, False, False) #FFT
-#actimg.surface_area(True)
 actimg.visualise_stack('manipulated')
-
 
 new = get_ActImgBinary(actimg)
 #new.visualise('original', 1)
-new.surface_area(n_dilations_erosions=(5,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
+new.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
 print(new.log)
-new.save_log()
+#new.save_log()
 new.mesh_holes_area(visualise=True)
-new.visualise_segmentation()
+new.visualise_segmentation(save=True)
 new.mesh_density()
 new.quantify_mesh()
 #new.estimated_parameters['mesh_holes']['hole_parameters'].hist(); plt.show()
