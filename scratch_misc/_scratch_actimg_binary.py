@@ -8,6 +8,38 @@ from meshure.actimg_binary import ActImgBinary, get_ActImgBinary
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data/")
 
 
+
+## attempt peripheral mesh density 
+
+subs = [2,3] #[8,10]
+actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif ', os.path.join(data_path, 'all_CARs')) 
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,21),sigma=2,substack=subs,visualise=False)
+actimg.z_project_min()
+actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
+actimg.visualise_stack('manipulated')
+
+new = get_ActImgBinary(actimg)
+#new.visualise('original', 1)
+new.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
+print(new.log)
+#new.save_log()
+new.mesh_holes_area(visualise=True)
+new.visualise_segmentation(save=False)
+new.mesh_density()
+new.quantify_mesh()
+new.peripheral_mesh_density()
+new.estimated_parameters['peripheral_mesh_density']
+new.estimated_parameters['mesh_density']
+
+
+#new.estimated_parameters['mesh_holes']['hole_parameters'].hist(); plt.show()
+#new.save_estimated_parameters('actin_meshwork_analysis/scratch_misc')
+
+
+
+
+
 """[
 #    ['8min_UNT_FOV3_decon.tif', 'Untransduced', 'Cytosolic'],
 #    ['8min_UNT_FOV6_decon.tif', 'Untransduced', 'Cytosolic'],
@@ -52,38 +84,10 @@ plt.imshow(new.contour_img);plt.show()
 
 new.contour_img[86:423,577] = 1
 
-#### visualisations #### 
 
-#3min_FOV4_decon_top_right
-subs = [2,3] #[8,10]
-actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif ', os.path.join(data_path, 'all_CARs')) 
-actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,20),sigma=2,substack=subs,visualise=False)
-#actimg.manipulated_stack = actimg.manipulated_stack[0]
-actimg.visualise_stack(imtype='manipulated',save=True,colmap='gray')
-actimg.visualise_stack(imtype='original',substack=subs,save=True,colmap='gray')
-actimg.visualise(imtype='original',ind=2,save=True,colmap='gray')
 
-actimg.z_project_min()
-#actimg.z_project_max(subs)
-#actimg.visualise_stack('manipulated')
-#actimg._threshold_preview_cases(factors=[+0.25, +0.5])
-actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
 
-actimg.visualise_stack('manipulated')
 
-new = get_ActImgBinary(actimg)
-#new.visualise('original', 1)
-new.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
-print(new.log)
-#new.save_log()
-new.mesh_holes_area(visualise=True)
-new.visualise_segmentation(save=True)
-new.mesh_density()
-new.quantify_mesh()
-#new.estimated_parameters['mesh_holes']['hole_parameters'].hist(); plt.show()
-
-#new.save_estimated_parameters('actin_meshwork_analysis/scratch_misc')
 
 
 plt.imshow(new.labels); plt.show()
@@ -110,3 +114,37 @@ np.sum(new.mesh_outline)*100 / np.sum(new.eroded_contour_img)
 np.unique(new.mesh_outline)
 
 len('')
+
+
+
+## CONTROL PIXEL SIZE 
+
+res = []
+fnames = []
+for dirname in ['all_CARs', 'all_Untransduced']:
+    tmp_path = os.path.join(data_path, dirname)
+    tmp_fnames = os.listdir(tmp_path)
+    fnames += tmp_fnames
+    for fname in tmp_fnames:
+        actimg = get_ActImg(fname,tmp_path) 
+        res.append(actimg.resolution['pixel_size_xy'])
+len(res)
+res.pop(82)
+fnames.pop(82)
+res.pop(61)
+fnames.pop(61)
+res_arr = np.array(res, dtype='int')
+#np.argmax(res_arr)
+# 3min_UNT_FOV1_decon.tif; 1min_Fri_FOV3_decon.tif huge cell size 
+
+np.mean(res_arr) # 31.5
+np.median(res_arr) # 33
+np.max(res_arr) # 76 (one val > 40)
+np.min(res_arr) # 16
+
+np.percentile(res_arr, 5) # 20
+np.percentile(res_arr, 95) # 36
+
+plt.hist(res_arr, 50); plt.show()
+
+
