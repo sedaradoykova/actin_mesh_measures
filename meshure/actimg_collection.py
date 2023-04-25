@@ -262,6 +262,7 @@ class ActImgCollection:
             f'cell_surface_area_{actimgbinary.estimated_parameters["cell_surface_area"]["unit"]}': 
             np.repeat(actimgbinary.estimated_parameters['cell_surface_area']['area'], nrep),
             'mesh_density': actimgbinary.estimated_parameters['mesh_density'],
+            'periph_mesh_density': actimgbinary.estimated_parameters['peripheral_mesh_density'],
             f'equivalent_diameter_area_{unit}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'equivalent_diameter_area_{unit}'],
             f'area_{unit}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'area_{unit}'],
             f'perimeter_{unit.split("^")[0]}': actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'][f'perimeter_{unit.split("^")[0]}']}) 
@@ -287,6 +288,7 @@ class ActImgCollection:
                 actimgbinary.visualise_segmentation(save=True, dest_dir=dest)
                 actimgbinary.mesh_density()
                 actimgbinary.quantify_mesh()
+                actimgbinary.peripheral_mesh_density()
                 #actimgbinary.save_estimated_parameters(dest)
                 actimgbinary.save_log(dest_dir=self.__save_destdir, dest_file='failed_segmentation_logs.txt')
             except:

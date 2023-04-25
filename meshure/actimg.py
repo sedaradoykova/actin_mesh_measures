@@ -128,7 +128,7 @@ class ActImg:
                 raise ValueError('Raw data has not been processed yet.')
             if ind < 1 or ind > self.manipulated_depth:
                 raise ValueError(f'ind must be an integer in range (1, {self.manipulated_depth})')        
-            if self._projected and self.manipulated_substack_inds:
+            if (self._projected and self.manipulated_substack_inds):
                 ax = plt.subplot()
                 ax.imshow(self.manipulated_stack, cmap=colmap)
                 ax.text(0.7, 0.05, 'n={count}'.format(count=self.manipulated_substack_inds),color='#F2F2F2',fontsize=8,

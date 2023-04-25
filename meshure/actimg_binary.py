@@ -42,6 +42,7 @@ class ActImgBinary(ActImg):
         self.cell_surface_area, self.mesh_holes = None, None
         self.log = ''
         self.__saturation_area = None
+        self.f_labels_area = None
 
 
 
@@ -372,6 +373,25 @@ class ActImgBinary(ActImg):
         else: 
             return None
 
+    def peripheral_mesh_density(self, verbose: bool=False, return_outpt: bool=False):
+        """Returns the peripheral mesh density as a % value. 
+        This is defined as [ 100 * actin_mesh_area / (filled_cell_surface - largest hole in cell) ] 
+        Note: the outline is included in the calculation. 
+        """
+        if not self.cell_surface_area:
+            raise RuntimeError('Cannot estimate mesh density because cell surface is not / cannot be segmented.')
+        if self.f_labels_area is None:
+            raise RuntimeError('Cannot estimate peripheral mesh density without mesh hole labels.')
+        area_factor = (self.resolution['pixel_size_xy']*1e-3)**2 if self.resolution['unit'] == 'nm' else (self.resolution['pixel_size_xy'])**2
+        peripheral_mesh_density = np.sum(self.mesh_outline)*100*area_factor / (self.cell_surface_area - np.max(self.f_labels_area.copy()))
+        self.estimated_parameters['peripheral_mesh_density'] = peripheral_mesh_density
+        if verbose: 
+            print(f'The percentage mesh density is  {peripheral_mesh_density:.2f} %')
+            print('Defined as the difference between the filled and unfilled mask.')
+        if return_outpt:
+            return peripheral_mesh_density
+        else: 
+            return None        
 
     def mesh_holes_area(self, unit: str='um', saturation_area: float=1, visualise: bool=False, return_outp: bool=False,
                         scale_bar: bool=True, bar_locate: str='upper left'):
