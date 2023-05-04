@@ -109,7 +109,7 @@ actimg._threshold_preview_cases(mu, sigma, factors=[0,0.25,0.5,1,1.25],max_proj_
 # plt.imshow(im_og, cmap='inferno')
 # plt.imshow(actimg.manipulated_stack, alpha=0.25)
 # plt.show()
-
+im_og = []
 plt.imshow(actimg.manipulated_stack, cmap='gray')
 plt.imshow(im_og, cmap='inferno', alpha=0.7)
 plt.axis('off')

@@ -8,7 +8,6 @@ from meshure.actimg_binary import ActImgBinary, get_ActImgBinary
 data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deconv_data/")
 
 
-
 ## attempt peripheral mesh density 
 
 subs = [2,3] #[8,10]
@@ -24,7 +23,10 @@ new = get_ActImgBinary(actimg)
 new.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
 print(new.log)
 #new.save_log()
-new.mesh_holes_area(visualise=True)
+new.mesh_holes_area(visualise=True, saturation_area=0.6)
+new._saturation_area
+np.isclose(np.max(new.f_labels_area), 2.6)
+plt.imshow(new.f_labels_area, cmap='coolwarm'); plt.show()
 new.visualise_segmentation(save=False)
 new.mesh_density()
 new.quantify_mesh()

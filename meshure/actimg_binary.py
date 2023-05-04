@@ -393,7 +393,7 @@ class ActImgBinary(ActImg):
         else: 
             return None        
 
-    def mesh_holes_area(self, unit: str='um', saturation_area: float=1, visualise: bool=False, return_outp: bool=False,
+    def mesh_holes_area(self, unit: str='um', saturation_area: float=None, visualise: bool=False, return_outp: bool=False,
                         scale_bar: bool=True, bar_locate: str='upper left'):
         """ Returns the labels by area and visualises mesh holes coloured by area size with specified unit and saturation 
         """
@@ -423,15 +423,15 @@ class ActImgBinary(ActImg):
 
         f_labels_transparent = f_labels_area.copy()
         f_labels_transparent[np.where(np.isclose(f_labels_transparent, 0))] = np.nan
-        if saturation_area is not None  and np.isclose(np.max(f_labels_transparent), saturation_area): 
-            f_labels_transparent[f_labels_transparent >= saturation_area] = saturation_area
-            self.__saturation_area = saturation_area if saturation_area else None
+        if ( (saturation_area is not None) and (np.max(f_labels_area) > saturation_area) ): 
+            f_labels_transparent[f_labels_area >= saturation_area] = saturation_area
+            self._saturation_area = saturation_area if saturation_area else None
 
         if visualise:
             plt.imshow(mesh_contour_transparent, cmap='gray')
             plt.imshow(f_labels_transparent, cmap='coolwarm_r')
             colbar = plt.colorbar()
-            if saturation_area is not None and np.isclose(np.max(f_labels_transparent), saturation_area):
+            if ( (saturation_area is not None) and (np.max(f_labels_area) > saturation_area) ):
                 new_ticks = np.linspace(0, saturation_area, 6)
                 new_ticklabs = [f'{n:.2e}' for n in new_ticks]
                 new_ticklabs[-1] = f'>={saturation_area:.2e}'
