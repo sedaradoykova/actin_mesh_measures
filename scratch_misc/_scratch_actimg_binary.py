@@ -10,9 +10,11 @@ data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/deco
 
 ## attempt peripheral mesh density 
 
-subs = [2,3] #[8,10]
+subs = [1,11] #[8,10]
 actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif ', os.path.join(data_path, 'all_CARs')) 
 actimg.normalise()
+# actimg.z_project_max(substack=[1,11])
+# actimg.visualise_stack('manipulated', colmap='gray', save=True)
 actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,21),sigma=2,substack=subs,visualise=False)
 actimg.z_project_min()
 actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
@@ -39,8 +41,81 @@ new.estimated_parameters['mesh_density']
 #new.save_estimated_parameters('actin_meshwork_analysis/scratch_misc')
 
 
+subs = [2,3] #[8,10]
+actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif ', os.path.join(data_path, 'all_CARs')) 
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,21),sigma=2,substack=subs,visualise=False)
+actimg.z_project_min()
+actimg.threshold_dynamic(std_dev_factor=0, return_mean_std_dev=False)
+
+new = get_ActImgBinary(actimg)
+new.surface_area(n_dilations_erosions=(0,2),closing_structure=None,extra_dilate_fill=True,verbose=False)
+print(new.log)
+new.mesh_holes_area(visualise=True, saturation_area=0.6)
+np.isclose(np.max(new.f_labels_area), 2.6)
+plt.imshow(new.f_labels_area, cmap='coolwarm'); plt.show()
+new.visualise_segmentation(save=False)
+
+mesh_plt = actimg.manipulated_stack.copy()
+mesh_plt = mesh_plt.astype('float')
+mesh_plt[np.where(np.isclose(mesh_plt, 0, atol=0.0001))] = np.nan
+plt.subplot(1,2,1); plt.imshow(actimg.manipulated_stack,cmap='gray')
+plt.subplot(1,2,2); plt.imshow(new._mesh_contour_transparent,cmap='gray');plt.show()
+
+plt.subplot(1,3,1)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.axis('off')
+plt.subplot(1,3,2)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+plt.axis('off')
+plt.subplot(1,3,3)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.imshow(mesh_plt, cmap='coolwarm_r',vmin=0,vmax=1,alpha=0.75)
+plt.axis('off')
+plt.tight_layout()
+plt.show()
+
+labs_plt = new.labels.copy()
+labs_plt[np.where(labs_plt != 0)] = 1
+labs_plt = labs_plt.astype('float')
+labs_plt[np.where(np.isclose(labs_plt, 0, rtol=0.0001))] = np.nan
+
+plt.subplot(1,3,1)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.axis('off')
+plt.subplot(1,3,2)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+plt.axis('off')
+plt.subplot(1,3,3)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.imshow(labs_plt, cmap='coolwarm',vmin=0,vmax=1)#,alpha=0.25)
+plt.axis('off')
+plt.tight_layout()
+plt.show()
 
 
+#plt.figure(figsize=(10,10))
+plt.subplot(2,2,1)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.axis('off')
+plt.subplot(2,2,2)
+plt.imshow(actimg.manipulated_stack,cmap='gray')
+plt.axis('off')
+plt.subplot(2,2,3)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.imshow(mesh_plt, cmap='coolwarm_r',vmin=0,vmax=1,alpha=0.75)
+plt.axis('off')
+plt.subplot(2,2,4)
+plt.imshow(actimg.image_stack[1], cmap='gray')
+plt.imshow(labs_plt, cmap='coolwarm',vmin=0,vmax=1)#,alpha=0.25)
+plt.axis('off')
+plt.tight_layout()
+plt.savefig('all_4.png',dpi=300, transparent=True)
+plt.show()
+
+plt.imshow(mesh_plt, cmap='coolwarm_r',vmin=0,vmax=1,alpha=0.75)
+plt.imshow(labs_plt,cmap='coolwarm',vmin=0,vmax=1,alpha=0.75)
+plt.axis('off');plt.show()
 
 """[
 #    ['8min_UNT_FOV3_decon.tif', 'Untransduced', 'Cytosolic'],
