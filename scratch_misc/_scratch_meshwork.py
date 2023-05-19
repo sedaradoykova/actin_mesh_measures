@@ -6,14 +6,14 @@ from itertools import chain
 from meshure.actimg import ActImg, get_ActImg
 #from meshure.utils import get_image_stack, list_all_tiffs, get_meta, get_resolution, list_files_dir_str
 os.chdir('actin_meshwork_analysis/scratch_misc')
-from actin_meshwork_analysis.scratch_misc._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
+from scratch_misc._scratch_utils import _line_profile_coordinates, plt_threshold_diagnostic
 from skimage.measure import profile_line
 
 
 """ Mesh size and morphological operations. """
 
 
-data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/Untransduced")
+data_path = os.path.join(os.getcwd(), "../process_data/sample_data/Untransduced")
 os.listdir(data_path)
 
 from PIL import Image
@@ -124,8 +124,8 @@ plt.imshow(labels, cmap=plt.cm.gnuplot); plt.show();
 
 """ Show diagnostic plot. """
 
-data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
-os.listdir(data_path)
+# data_path = os.path.join(os.getcwd(), "actin_meshwork_analysis/process_data/sample_data/CARs")
+# os.listdir(data_path)
 
 actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
 actimg.normalise()
@@ -158,15 +158,15 @@ plt_threshold_diagnostic(actimg, linprof_original)
 from skimage.measure import profile_line
 from matplotlib_scalebar.scalebar import ScaleBar
 
-data_path = os.path.join(os.getcwd(), "../process_data/sample_data/CARs")
+data_path = os.path.join(os.getcwd(), "../process_data/deconv_data/all_CARs")
 os.listdir(data_path)
 
 # Basal [1],[1,3],[3,4],[1,2],[1],[1,4]
 # Cytoplasmic [4,6],[6,9],[6,8],[4,6],[3,5],[4,7]
 
-actimg = get_ActImg('3min_FOV3_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
 actimg.normalise()
-actimg.steerable_gauss_2order_thetas(thetas=[0,60,120],sigma=2,substack=[3,5],visualise=False)
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,21),sigma=2,substack=[2,3],visualise=False)
 actimg.z_project_min()
 #actimg.visualise_stack('manipulated',colmap='gray')
 rows, cols = actimg.shape
@@ -259,20 +259,57 @@ print(f'\n                 MU              SIGMA'+
       f'\nscipy.fit.norm:  {mu:.6f}       {sigma:.6f}\n')
 
 
+
+# ACTUAL DYNAMIC THRESHOLD PLOT WITH LINES 
+# dynamic threshold lines 
+
+data_path = os.path.join(os.getcwd(), "../process_data/deconv_data/all_CARs")
+os.listdir(data_path)
+
+# Basal [1],[1,3],[3,4],[1,2],[1],[1,4]
+# Cytoplasmic [4,6],[6,9],[6,8],[4,6],[3,5],[4,7]
+
+actimg = get_ActImg('8min_CARs_Dual_FOV1_decon.tif', data_path) # base = [1,4], cyto = [4,7] 
+actimg.normalise()
+actimg.steerable_gauss_2order_thetas(thetas=np.linspace(0,180,21),sigma=2,substack=[2,3],visualise=False)
+actimg.z_project_min()
+
+rows, cols = actimg.shape
+lineprof_coords = [[(0,0),(rows,cols)], [(rows,0),(0,cols)], 
+                   [(int(rows/2),0),(int(rows/2),cols)], [(0,int(cols/2)),(rows,int(cols/2))]]
+line_profs = [] 
+for start, end in lineprof_coords: 
+    line_profs.append(profile_line(actimg.manipulated_stack, start, end, linewidth=5).ravel())
+
+all_profs = np.concatenate(line_profs).ravel()
+all_profs.shape
+all_profs.sort()
+
+mean, std_dev = np.mean(all_profs), np.std(all_profs)
+
+plt.rcParams.update({'font.size': 16})
+plt.figure(figsize=(10,5))
 plt.subplot(1,2,1)
 plt.imshow(actimg.manipulated_stack,cmap='gray')
 scalebar = ScaleBar(actimg.resolution, 'nm', box_color='None', color='black', location='upper left') 
 plt.gca().add_artist(scalebar)
 plt.axis('off')
-plt.title('steerable Gaussian filter resposne')
+#plt.title('steerable Gaussian filter resposne')
 for (r1,r2),(c1,c2) in lineprof_coords: 
     plt.plot((r1,c1),(r2,c2), color='black')
 plt.subplot(1,2,2)
 _, bins, _ = plt.hist(all_profs, 30, density=1, alpha=0.95, color='#A8A8A8')
-plt.plot(bins, fit_y, color='black')
+#plt.plot(bins, fit_y, color='black')
+ticks = plt.yticks()[0]
+plt.vlines(mean, ticks[0], ticks[-1],linestyles="--", color='black', label=r'$\mu$')
+plt.vlines([mean-std_dev, mean+std_dev], ticks[0], ticks[-1],linestyles="dotted", 
+           color='darkgray', label=r'$\mu \pm \sigma$')
 plt.ylabel('Count')
 plt.xlabel('Pixel intensity value')
-plt.title('aggregated line profiles\nafter steerable Gaussian filter')
+plt.xlim(-0.15,0.05)
+#plt.title('aggregated line profiles\nafter steerable Gaussian filter')
+plt.tight_layout()
+plt.legend(loc="upper left")
 plt.show();
 
 plt.close();
