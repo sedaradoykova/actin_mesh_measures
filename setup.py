@@ -29,7 +29,10 @@ setup(
         'scipy==1.9.1',
         'setuptools==63.4.1',
         'tifffile==2021.7.2',
-        'tqdm==4.64.1'
+        'tqdm==4.64.1',
+        'sphinx',
+        'myst-parser',
+        'furo'
     ],
     entry_points = {
         'console_scripts': [

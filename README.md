@@ -4,12 +4,12 @@
 badges to be included 
 ---- -->
 
-AchinMeshure is a small library of functions which aim to quantify actin remodelling from super-resolution STED images of cytoskeletal actin. 
+AchinMeshure is a small library of functions which aim to quantify actin remodelling from super-resolution microscopy images of cytoskeletal actin. 
 
 The library includes classes and helpers to: 
 
 - read in images and extract metadata into `ActImg` instances
-- manipulate, visualise, and save images in either `ActImg` or `ActImgBinary` instances 
+- manipulate, visualise, and save images in either `ActImg` or `ActImgBinary` instances; also great for interactive analysis 
 - run batch analyses on entire directories with data using the `ActImgCollection` class
 - summarise and visualise batch processing results, written into HTML files (requires `Pandoc`)
 
@@ -35,7 +35,7 @@ from meshure import getActImg
 
 ## License
 
-Copyright 2023, Seda Radoykova.
+Copyright 2023, Simoncelli Lab.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
