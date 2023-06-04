@@ -21,7 +21,7 @@ class ActImgCollection:
     focal_planes: pd.DataFrame=None
     analysis_steps=None
     parameters=None
-    pipeline_outline = {# loop through these (if needed) for basal/cytosolic results 
+    pipeline_outline = {# loop through these (if needed) for basal/cytoplasmic results 
             '01': {'func': 'z_project_max', 'params': "substack=self.parameters['substack']",
                    'vis_stack': True, 'vis_params': "imtype='manipulated',save=True,dest_dir=self.parameters['dest_dir']"},
             '02': {'func': 'nuke', 'params': None, 'vis_stack': False},
@@ -110,18 +110,20 @@ class ActImgCollection:
         Arguments
         ---------
         filepath : str 
-            Filepath specifies a csv file with four fields (named exactly: 'File name', 'Type', 'Basal', 'Cytosolic', 'Notes').
-                File name : name of tiff file 
-                Type : cell type, either 'Untransduced' or 'CAR'
-                Basal : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
-                    These are converted to a list inside the function
-                Cytosolic : one or two comma separated integers specifying the focal plane (or focal plane [start, end])
-                    These are converted to a list inside the function
-                Notes : field not used by this function. 
+            Filepath specifies a csv file with four fields (named exactly: 'File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes').
+            File name = name of tiff file 
+            Type = cell type, either 'Untransduced' or 'CAR'
+            Basal = one or two comma separated integers specifying the focal plane (or focal plane [start, end])
+                These are converted to a list inside the function
+            Cytoplasmic = one or two comma separated integers specifying the focal plane (or focal plane [start, end])
+                These are converted to a list inside the function
+            Notes = field not used by this function. 
+        
         Returns
         -------
         self.focal_planes : pandas DataFrame
             ??? 
+        
         Raises
         -----
         Warning
@@ -135,15 +137,15 @@ class ActImgCollection:
             raise TypeError(f'Invalid file {os.path.basename(filepath)}; CSV required.')
 
         focal_planes = pd.read_csv(filepath)
-        # if list(focal_planes.columns) != ['File name', 'Basal', 'Cytosolic', 'Notes']:
-        #     raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytosolic', 'Notes']")
+        # if list(focal_planes.columns) != ['File name', 'Basal', 'Cytoplasmic', 'Notes']:
+        #     raise ValueError("Csv file contains unexpected columns. Columns must be named ['File name', 'Type', 'Basal', 'Cytoplasmic', 'Notes']")
 
-        # if basal or cytosolic planes are not speficied, discard   
-        self._filenames_to_del = focal_planes['File name'][focal_planes[['Basal', 'Cytosolic']].isna().any(axis=1)].tolist()
-        focal_planes = focal_planes.dropna(subset=['Basal', 'Cytosolic'])
+        # if basal or cytoplasmic planes are not speficied, discard   
+        self._filenames_to_del = focal_planes['File name'][focal_planes[['Basal', 'Cytoplasmic']].isna().any(axis=1)].tolist()
+        focal_planes = focal_planes.dropna(subset=['Basal', 'Cytoplasmic'])
 
         focal_planes['Basal'] = focal_planes['Basal'].apply(lambda val: [int(x) for x in val.split(',')])
-        focal_planes['Cytosolic'] = focal_planes['Cytosolic'].apply(lambda val: [int(x) for x in val.split(',')])
+        focal_planes['Cytoplasmic'] = focal_planes['Cytoplasmic'].apply(lambda val: [int(x) for x in val.split(',')])
 
 
         if focal_planes.iloc[:,0].unique().shape[0] == focal_planes.shape[0]:
@@ -153,13 +155,14 @@ class ActImgCollection:
         return None
 
 
-    def initialise_curr_filenames_and_planes(self, subdir):
+    def _initialise_curr_filenames_and_planes(self, subdir):
         """ Called inside analysis loop. Subsets the current filenames which are being processed based on subdir. 
         
         Arguments
         ---------
         subdir : str 
             ?????? 
+        
         Returns
         -------
         curr_filenames : list
@@ -182,7 +185,7 @@ class ActImgCollection:
             return curr_filenames, curr_filepath, curr_planes
 
 
-    def initialise_res_dir(self, subdir):
+    def _initialise_res_dir(self, subdir):
         """ Initialise results directory. """
         self.__save_destdir = self.res_path if self.res_path else os.path.join(self.root_path, '_results_'+subdir)
         if not os.path.exists(self.__save_destdir):
@@ -192,7 +195,7 @@ class ActImgCollection:
         if not os.path.exists(self.__basal_dest):
             os.mkdir(self.__basal_dest)
 
-        self.__cyto_dest = os.path.join(self.__save_destdir, 'cytosolic')
+        self.__cyto_dest = os.path.join(self.__save_destdir, 'cytoplasmic')
         if not os.path.exists(self.__cyto_dest):
             os.mkdir(self.__cyto_dest)
 
@@ -212,6 +215,7 @@ class ActImgCollection:
 
     def parametrise_pipeline(self, substack=None, theta=None, thetas=None, sigma=2, threshold=None, dest_dir=None):
         """ Fill in parameters based on function calls in pipeline. 
+        
         Arguments
         ---------
         substack : list of ints
@@ -219,6 +223,7 @@ class ActImgCollection:
         thetas : list of floats
         sigma : float
         threshold : float
+        
         Returns 
         -------
         dict : ????
@@ -228,7 +233,7 @@ class ActImgCollection:
             self.parameters[key] = value
 
 
-    def pipeline_construct(self, actin_img_instance, func):
+    def _pipeline_construct(self, actin_img_instance, func):
         func_spcify = self.pipeline_outline[func]
         failed_funcs, failed_vis = [], []
     
@@ -249,7 +254,7 @@ class ActImgCollection:
         if func_spcify['vis_stack']:
             eval(f"actin_img_instance.visualise_stack({func_spcify['vis_params']})")    
 
-    def extract_parameters(self, actimgbinary):
+    def _extract_parameters(self, actimgbinary):
         if 'activation_time' not in actimgbinary.estimated_parameters['cell_type'].keys():
             actimgbinary.estimated_parameters['cell_type']['activation_time'] = actimgbinary._get_activation_time()
         nrep = actimgbinary.estimated_parameters['mesh_holes']['hole_parameters'].shape[0]
@@ -269,17 +274,17 @@ class ActImgCollection:
         self.all_dfs_list.append(df) 
         
 
-    def analysis_pipeline(self, filename, filepath, curr_planes):
+    def _analysis_pipeline(self, filename, filepath, curr_planes):
         """ ??? """
         actin_img_instance = get_ActImg(filename, filepath)
         actin_img_instance.visualise_stack(imtype='original',save=True,dest_dir=self.__main_dest) 
 
-        basal_stack, cyto_stack, cell_type = curr_planes.loc[curr_planes['File name']==filename, ['Basal', 'Cytosolic', 'Type']].values[0]
-        for mesh_type, stack, dest in zip(['Basal', 'Cytosolic'], [basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
+        basal_stack, cyto_stack, cell_type = curr_planes.loc[curr_planes['File name']==filename, ['Basal', 'Cytoplasmic', 'Type']].values[0]
+        for mesh_type, stack, dest in zip(['Basal', 'Cytoplasmic'], [basal_stack, cyto_stack], [self.__basal_dest, self.__cyto_dest]):
             self.parameters['substack'] = stack
             self.parameters['dest_dir'] = dest
             for step in list(self.pipeline_outline.keys()):
-                self.pipeline_construct(actin_img_instance, step)
+                self._pipeline_construct(actin_img_instance, step)
             actimgbinary = get_ActImgBinary(actin_img_instance)
             actimgbinary.estimated_parameters['cell_type'] = {'type': cell_type, 'mesh_type': mesh_type}
             try:
@@ -294,12 +299,12 @@ class ActImgCollection:
             except:
                 self.failed_segmentations.append(f'{actimgbinary.title}--{mesh_type}')
             else: 
-                self.extract_parameters(actimgbinary)
+                self._extract_parameters(actimgbinary)
             finally:
                 actin_img_instance.nuke()
 
 
-    def visualise_html(self, subdir: str, curr_planes: pd.DataFrame, include_steps: list=None):
+    def _visualise_html(self, subdir: str, curr_planes: pd.DataFrame, include_steps: list=None):
         """ ??? 
         Returns
         -------
@@ -323,7 +328,7 @@ class ActImgCollection:
 
         with open(os.path.join(self.__save_destdir, md_filename), 'w') as f:
             f.write('---\n')
-            f.write(f'title: {results_base_dir} basal and cytosolic meshwork results.')
+            f.write(f'title: {results_base_dir} basal and cytoplasmic meshwork results.')
             f.write('\n---\n\n\n')
             for file in curr_planes['File name']:
                 fname = file.split('.')[0]
@@ -332,7 +337,7 @@ class ActImgCollection:
                 f.write('\n\n')
                 f.write(f'![](main/{fstack})'+'{ width=700px }  ')
                 f.write('\n\n')
-                for cdir in ('basal', 'cytosolic'):
+                for cdir in ('basal', 'cytoplasmic'):
                     all_cnames = [f for f in filenames[cdir] if fname in f]
                     f.write(f'## {cdir.title()} network  ')
                     f.write('\n\n')
@@ -358,7 +363,7 @@ class ActImgCollection:
             subprocess.run(f'pandoc -t slidy -s {pandoc_input} -o {pandoc_input.replace(".md", ".html")}', shell=True)
 
 
-    def return_params(self):
+    def _return_params(self):
         analysis_parameters = {'root_directory': self.root_path, 'parameters': self.parameters}
         with open(f'{os.path.join(self.root_path, os.path.basename(self.root_path))}.yml', 'w') as f:
             yaml.dump(analysis_parameters, f, default_flow_style=False)
@@ -373,14 +378,14 @@ class ActImgCollection:
         self.all_dfs_list = []
         for subdir in tqdm(self.only_subdirs, desc='cell types'):
 
-            curr_filenames, curr_filepath, curr_planes = self.initialise_curr_filenames_and_planes(subdir=subdir)
-            self.initialise_res_dir(subdir=subdir)
+            curr_filenames, curr_filepath, curr_planes = self._initialise_curr_filenames_and_planes(subdir=subdir)
+            self._initialise_res_dir(subdir=subdir)
 
             for name in tqdm(curr_filenames, desc='files'):
-                self.analysis_pipeline(filename=name,filepath=curr_filepath,curr_planes=curr_planes)
+                self._analysis_pipeline(filename=name,filepath=curr_filepath,curr_planes=curr_planes)
         
             if visualise_as_html:
-                self.visualise_html(subdir=subdir, curr_planes=curr_planes, include_steps=['Maximum projection','Minimum projection','Segmented mesh'])
+                self._visualise_html(subdir=subdir, curr_planes=curr_planes, include_steps=['Maximum projection','Minimum projection','Segmented mesh'])
 
             if save_as_single_csv: 
                 self.all_parameters_df = pd.concat(self.all_dfs_list)
@@ -403,7 +408,7 @@ class ActImgCollection:
                 'Invalid input, step passed.' 
 
         if return_parameters:
-            self.return_params()
+            self._return_params()
 
 
         

@@ -37,4 +37,6 @@ notebooks/tutorial_actimg_binary
 :maxdepth: 2
 
 actimg_docs
+actimg_binary_docs
+actimg_collection_docs
 ```

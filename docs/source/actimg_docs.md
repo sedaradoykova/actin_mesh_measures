@@ -7,13 +7,13 @@ This library and its documentation are still under development.
 This section documents the ActImg class and its methods and helpers.  
 
 
-## Class and attributes 
+## ActImg class and attributes 
 
 ```{eval-rst}
 .. autofunction:: meshure.actimg.ActImg
 ```
 
-## Methods
+## ActImg methods
 
 ```{eval-rst}
 .. autofunction:: meshure.actimg.ActImg.visualise
@@ -65,7 +65,7 @@ This section documents the ActImg class and its methods and helpers.
 
 
 
-## Hidden methods
+## ActImg hidden methods
 
 ```{eval-rst}
 .. autofunction:: meshure.actimg.ActImg._threshold_preview_cases
@@ -93,7 +93,7 @@ This section documents the ActImg class and its methods and helpers.
 
 
 
-## Helpers 
+## ActImg helpers 
 
 ```{eval-rst}
 .. autofunction:: meshure.actimg.get_ActImg

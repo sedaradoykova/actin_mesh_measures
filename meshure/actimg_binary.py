@@ -54,12 +54,14 @@ class ActImgBinary(ActImg):
         Note: there is a 1 pixel additional margin because get_boundaries returns a float index (half a pixel is permissible); 
         therefore, the boundary is two-pixels thick, rounding up and down. 
         ...
+
         Arguments
         ---------
         n_dilations=3
             Number of serial dilations, can be adjusted to avoid introducing artifacts. 
         closing_structure : array-like, =None 
             Structure used to fill in small, presumably unwanted gaps in original segmentation. 
+        
         Returns
         ------- 
         contour_img : np.ndarray (m, n)
@@ -106,6 +108,7 @@ class ActImgBinary(ActImg):
 
     def _fill_contour_img(self, img_in=None, n_erosions: int=2, extra_dilate_fill: bool=True, return_outpt: bool=False):
         """ Returns a filled mask of the cell surface. Uses serial erosions to avoid artifacts.
+        
         Arguments
         ---------
         contour_img : np.ndarray 
@@ -115,13 +118,17 @@ class ActImgBinary(ActImg):
             Should be one more than the ones introduced in `_get_contour()` for greatest degree of accuracy. 
         extra_dilate_fill : bool=True
             An optional additional dilation and filling step to capture any small areas which may be otherwise missed. 
+        
         Returns
         -------
         eroded_contour_img : nd.array (m,n)
             A mask with the filled and thinned cell surface; mapped to filled_contour_img attribute. 
+        
         See also
         --------
-        `_get_contour()`, `_check_boundaries()`, `surface_area()`
+        _get_contour
+        _check_boundaries
+        surface_area
         """
         if img_in is None: 
             img = np.copy(self.contour_img)
@@ -165,10 +172,12 @@ class ActImgBinary(ActImg):
         If < 5 points are touching the boundary, their range will be used to fill (min, max).
         If > 5 points are touching the boundary on one axis, segmentation will fail. 
         If the surface area is too large or too small, this will be raised appropriately. 
+        
         Arguments
         ---------
         contour_img : np.ndarray (m,n)
             A mask with the longest contour (=1); returned by `_get_contour()`.
+        
         Returns
         -------
         log : dict
@@ -287,6 +296,7 @@ class ActImgBinary(ActImg):
         Note: the algorithm uses serial dilations to include the periphery of the cell even if the cell boundary is discontinuous.
         The dilations are followed by an equivalent number of serial erosions to avoid overestimating the cell area. 
         Note: it is assumed that the largest object in the field of view is the cell which is to be segmented.
+        
         Returns
         -------
         if the cell is not segmented, this is recorded separately
@@ -455,6 +465,24 @@ class ActImgBinary(ActImg):
         
     def visualise_segmentation(self, save: bool=False, dest_dir: str=os.getcwd(), scale_bar: bool=True, bar_locate: str='upper left'):
         """ Visualise the segmentation steps: binary mesh, cell surface, mesh holes. 
+
+        Arguments
+        ---------
+        save : bool=False
+            Save plot to dest_dir. Displayed but not saved by default.
+        dest_dir : str=os.getcwd()
+            Directory to save plot in (defaults to current working directory) 
+        colmap : str='inferno'
+            Change color map (passed to `cmap` argument) in matplotlib.pyplot. Perceptually uniform colour map used by default.
+        scale_bar : bool=True
+            Adding a scale bar to images by default (provided, resolution is available).
+        bar_locate : str='upper_left'
+            Position of scale bar; upper left by default. 
+
+        Returns
+        -------
+        matplotlib.pyplot
+            A tiled plot of three panels: binary mesh (mask), cell surface (filled cell contour), mesh holes (inverted mask). 
         """
         if not isinstance(save, bool):
             raise TypeError('`save` must be a boolean.')
@@ -546,12 +574,37 @@ class ActImgBinary(ActImg):
         return None
 
 
-    def _get_activation_time(self):
-        activation_time = [char for char in self.title.split('_') if 'min' in char][0] 
-        return activation_time
+    def _get_img_time(self, time_units: str='min'):
+        """ Return the time of the cell image from the title. 
+
+        Only works with titles where information is split with '_'.
+
+        Arguments
+        ---------
+        time_units : str='min'
+            Units which are taken as a key word.
+
+        Returns
+        -------
+        img_time : str
+            Time condition associated with image file, e.g. 3min. 
+        """
+        img_time = [char for char in self.title.split('_') if time_units in char][0] 
+        return img_time
 
 
     def save_estimated_parameters(self, dest_dir: str=os.getcwd()): 
+        """ Saves estimated parameters in JSON and CSV format.
+        
+        Arguments
+        ---------
+        dest_dir : str or Path
+            Path of destination where the JSON file should be saved; defaults to current working directory.  
+        
+        Returns
+        --------
+            A JSON and/or CSV file with the `estimated parameters` in the ActImgBinary object and the resolution-related parameters from `self.resolution`.
+        """
         if not os.path.exists(dest_dir):
             raise FileExistsError(f'Path not found: {dest_dir}')
         
@@ -560,7 +613,7 @@ class ActImgBinary(ActImg):
             os.mkdir(dest)
 
         if 'activation_time' not in self.estimated_parameters['cell_type'].keys():
-            self.estimated_parameters['cell_type']['activation_time'] = self._get_activation_time()
+            self.estimated_parameters['cell_type']['activation_time'] = self._get_img_time()
 
         try:
             json_params = json.dumps({'filename': self.title,
@@ -591,7 +644,8 @@ class ActImgBinary(ActImg):
         return None
 
 def get_ActImgBinary(actimg): 
-    """ Returns an ActImgBinary instance given a related ActImg. 
+    """ Returns an ActImgBinary instance given a related ActImg.
+
     Arguments
     ---------
     actimg : ActImg
