@@ -35,7 +35,7 @@ extensions = [
     'sphinx.ext.duration', 
     'sphinx.ext.autosectionlabel',
     'sphinx.ext.autodoc',
-    'sphinx.ext.coverage',
+    'sphinx.ext.coverage', 
     'sphinx.ext.napoleon',
     'numpydoc',
     'nbsphinx' # or MyST-NB, 

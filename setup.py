@@ -32,6 +32,7 @@ setup(
         'tqdm==4.64.1',
         'sphinx==6.2.0',
         'myst-parser==1.0.0',
+        'myst_parser==1.0.0',
         'furo==2023.5.20',
         'nbsphinx==0.9.2',
         'Jinja2==3.0.3',
