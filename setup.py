@@ -35,7 +35,8 @@ setup(
         'furo==2023.5.20',
         'nbsphinx==0.9.2',
         'Jinja2==3.0.3',
-        'Flask==1.1.1'
+        'Flask==1.1.1',
+        'numpydoc==1.5.0'
     ],
     entry_points = {
         'console_scripts': [
