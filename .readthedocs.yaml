@@ -16,3 +16,4 @@ python:
         - doc
         - numpydoc
         - nbsphinx 
+        - ipykernel
