@@ -34,7 +34,11 @@ extensions = [
     'myst_parser', 
     'sphinx.ext.duration', 
     'sphinx.ext.autosectionlabel',
-    'nbsphinx' # or MyST-NB
+    'sphinx.ext.autodoc',
+    'sphinx.ext.coverage',
+    'sphinx.ext.napoleon',
+    'numpydoc',
+    'nbsphinx' # or MyST-NB, 
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -57,3 +61,8 @@ html_theme = 'furo'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+napoleon_numpy_docstring = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_param = True

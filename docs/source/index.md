@@ -31,3 +31,10 @@ usage
 notebooks/tutorial_actimg
 notebooks/tutorial_actimg_binary
 ```
+
+```{toctree}
+:caption: 'Meshure classes:'
+:maxdepth: 2
+
+actimg_docs
+```
