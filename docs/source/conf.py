@@ -33,7 +33,8 @@ release = '0.1'
 extensions = [
     'myst_parser', 
     'sphinx.ext.duration', 
-    'sphinx.ext.autosectionlabel'
+    'sphinx.ext.autosectionlabel',
+    'nbsphinx' # or MyST-NB
 ]
 
 # Add any paths that contain templates here, relative to this directory.

@@ -1,6 +1,6 @@
-# Using ActinMeshure
+# Installation 
 
-## Installation from source 
+## From source 
 
 To install ActinMeshure, download the source code from the repository, navigate to the destination directory, and run:  
 
@@ -16,4 +16,12 @@ If you wish to edit/develop the package, run it directly from source using:
 from meshure import getActImg
 
 
+```
+
+## Installing dependencies 
+
+If you do not have pandoc installed, you can install it as follows. Check pandoc documentation for OS-specific installation instructions. 
+
+```{bash}
+sudo apt-get install pandoc 
 ```

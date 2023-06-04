@@ -8,7 +8,7 @@ setup(
     description = 'This package aims to quantify cytoskeletal actin remodelling from super resolution STED images of T cells.',
     url = 'https://github.com/sedaradoykova/actin_mesh_measures',
     download_url ='https://github.com/sedaradoykova/actin_mesh_measures',
-    license = '(C) University College London 2023',
+    license = '(C) Simoncelli Lab 2023',
     # packages = find_packages(
     #     include = ['meshwork']  # alternatively: `include=['additional*']`
     #     ),  
@@ -30,9 +30,12 @@ setup(
         'setuptools==63.4.1',
         'tifffile==2021.7.2',
         'tqdm==4.64.1',
-        'sphinx',
-        'myst-parser',
-        'furo'
+        'sphinx==6.2.0',
+        'myst-parser==1.0.0',
+        'furo==2023.5.20',
+        'nbsphinx==0.9.2',
+        'Jinja2==3.0.3',
+        'Flask==1.1.1'
     ],
     entry_points = {
         'console_scripts': [

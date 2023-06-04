@@ -10,15 +10,24 @@
 ```
 
 For installation and getting started, see {doc}`usage`. 
-Read installation instructions in {ref}`Installation`. 
+Read more detailed installation instructions in {ref}`Getting started`. 
+For tutorials, refer to the tutorials included in this documentation.
 
 ```{warning}
 This library is under development. 
 ```
 
 ```{toctree}
-:caption: 'Contents:'
+:caption: 'Getting started:'
 :maxdepth: 2
 
 usage
+```
+
+```{toctree}
+:caption: 'Tutorials:'
+:maxdepth: 32
+
+notebooks/tutorial_actimg
+notebooks/tutorial_actimg_binary
 ```
