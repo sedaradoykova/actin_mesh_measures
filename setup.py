@@ -36,7 +36,8 @@ setup(
         'nbsphinx==0.9.2',
         'Jinja2==3.0.3',
         'Flask==1.1.1',
-        'numpydoc==1.5.0'
+        'numpydoc==1.5.0',
+        'ipykernel==6.19.2'
     ],
     entry_points = {
         'console_scripts': [
