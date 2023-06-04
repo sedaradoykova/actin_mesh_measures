@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name = 'actinmeshure',
+    name = 'ActinMeshure',
     version = '0.1.0',
     author = 'Seda Radoykova',
     author_email = 'seda.radoykova.19@ucl.ac.uk',
@@ -30,9 +30,8 @@ setup(
         'setuptools==63.4.1',
         'tifffile==2021.7.2',
         'tqdm==4.64.1',
-        'myst-parser==1.0.0',
+        'myst_parser==1.0.0',
         'sphinx==6.2.0',
-        #'myst-parser==1.0.0',
         'furo==2023.5.20',
         'nbsphinx==0.9.2',
         'Jinja2==3.0.3',
